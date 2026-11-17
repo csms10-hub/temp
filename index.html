@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>교실 온습도 측정기</title>
+<style>
+:root{
+  --bg:#f3f5f8; --card:#fff; --ink:#1d2433; --muted:#6b7385; --line:#e2e6ed;
+  --temp:#e8590c; --hum:#1c7ed6; --ok:#2b8a3e; --warn:#e67700; --bad:#c92a2a;
+  --m-breath:#7048e8; --m-hand:#d6336c; --m-ice:#0c8599; --m-custom:#495057;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+h1{font-size:20px;margin:0}
+.status{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin-top:4px}
+.dot{width:10px;height:10px;border-radius:50%;background:#adb5bd;flex:none}
+.dot.on{background:var(--ok);box-shadow:0 0 0 4px rgba(43,138,62,.18);animation:pulse 2s infinite}
+.dot.demo{background:var(--warn)}
+@keyframes pulse{50%{box-shadow:0 0 0 7px rgba(43,138,62,.05)}}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;font-size:14px;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+button:hover:not(:disabled){background:#f1f3f5}
+button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+button.primary:hover:not(:disabled){background:#343d52}
+button:disabled{opacity:.4;cursor:not-allowed}
+main{max-width:1200px;margin:0 auto;padding:20px 16px 40px;display:grid;gap:16px}
+.notice{background:#fff4e6;border:1px solid #ffd8a8;color:#7c4a03;border-radius:10px;padding:10px 14px;font-size:14px;display:none}
+.notice.show{display:block}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;transition:border-color .3s;min-width:0}
+.card.alert{border:2px solid var(--bad)}
+.label{font-size:15px;color:var(--muted);font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.big{font-size:68px;font-weight:800;line-height:1.1;margin:8px 0 4px;font-variant-numeric:tabular-nums}
+.big .unit{font-size:26px;font-weight:600;color:var(--muted);margin-left:4px}
+#tVal{color:var(--temp)} #hVal{color:var(--hum)}
+.mini{display:flex;gap:16px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mini b{color:var(--ink)}
+.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:700;background:#e9ecef;color:var(--muted)}
+.badge.ok{background:#ebfbee;color:var(--ok)} .badge.warn{background:#fff4e6;color:var(--warn)} .badge.bad{background:#fff5f5;color:var(--bad)}
+.desc{font-size:14px;color:var(--muted);margin-top:6px;line-height:1.5}
+h2.sec{font-size:16px;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--muted);font-weight:500;align-items:center;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+canvas{width:100%;height:320px;display:block}
+.two{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+@media(max-width:860px){.two{grid-template-columns:1fr}.big{font-size:54px}}
+table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:13px}
+.empty{color:var(--muted);text-align:center;padding:20px}
+.guide{font-size:14px;line-height:1.7;color:var(--muted)}
+.guide b{color:var(--ink)}
+.guide ol{margin:6px 0 0;padding-left:20px}
+select,input[type=text]{font:inherit;font-size:14px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+select{font-size:13px;padding:5px 8px}
+
+/* 실험 표시 */
+.markerBar .groups{display:flex;flex-wrap:wrap;gap:10px}
+.mgroup{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fafbfc}
+.mtitle{font-size:13px;font-weight:700;margin-right:2px}
+.mbtn{font-size:13px;padding:7px 11px;border-left:4px solid var(--c)}
+.mbtn.start{background:var(--c);color:#fff;border-color:var(--c)}
+.mbtn.start:hover:not(:disabled){filter:brightness(1.1);background:var(--c)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-radius:999px;background:#f1f3f5;border-left:4px solid var(--c)}
+.chip time{color:var(--muted);font-variant-numeric:tabular-nums}
+.chip button{border:none;background:none;padding:0 6px;font-size:15px;line-height:1;color:var(--muted)}
+.mcol{display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--c);margin-right:4px;vertical-align:middle}
+
+/* 분석표 */
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{font-size:14px;padding:8px 14px}
+.tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.panel{display:none;margin-top:14px}
+.panel.active{display:block}
+.ptitle{display:none;font-size:17px;margin:0 0 8px}
+.panelGrid{display:grid;grid-template-columns:3fr 2fr;gap:16px;align-items:start}
+@media(max-width:860px){.panelGrid{grid-template-columns:1fr}}
+canvas.seg{height:230px;border:1px solid var(--line);border-radius:10px;background:#fcfcfd}
+.steps{font-size:13px;color:var(--muted);margin:8px 0 0;line-height:1.6}
+.steps b{color:var(--ink)}
+table.kv td:first-child{color:var(--muted);width:46%}
+table.kv td:last-child{font-weight:700}
+h3{font-size:15px;margin:20px 0 8px}
+table.ana th:nth-child(1){width:13%} table.ana th:nth-child(2){width:33%} table.ana th:nth-child(3){width:22%}
+.subj{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:6px;background:#f1f3f5;white-space:nowrap}
+.subj.sci{background:#e7f5ff;color:#1864ab} .subj.math{background:#f3f0ff;color:#5f3dc4} .subj.pe{background:#ebfbee;color:#2b8a3e}
+td.auto{font-weight:700;color:var(--ink);background:#fffbea}
+textarea{width:100%;min-height:58px;font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;resize:vertical}
+.who{display:flex;gap:8px;align-items:center;font-size:14px;flex-wrap:wrap}
+.state{font-size:13px;color:var(--muted);font-weight:500}
+
+/* 인쇄: 분석표만 */
+@media print{
+  body{background:#fff}
+  body.print-analysis header, body.print-analysis main > :not(#analysis){display:none!important}
+  body.print-analysis .card{border:none;padding:0}
+  body.print-analysis .tabs, body.print-analysis .noPrint{display:none!important}
+  body.print-analysis .panel{display:block!important;break-after:page}
+  body.print-analysis .ptitle{display:block}
+  td.auto{background:#fff}
+  textarea{border:1px solid #999;min-height:70px}
+}
+/* ======================= 화면 전환 탭 ======================= */
+.appnav{display:flex;gap:4px;background:#f1f3f5;padding:4px;border-radius:10px}
+.appnav button{border:none;background:transparent;font-weight:700;padding:8px 16px}
+.appnav button.active{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.appnav button:hover:not(.active){background:#e9ecef}
+#ws[hidden], #app[hidden]{display:none!important}
+.toWs{font-size:13px}
+
+/* ======================= 학습지 (#ws) ======================= */
+
+#ws{
+  --ink:#1d2433; --muted:#5f6878; --line:#cfd5de; --soft:#f4f6f9; --bg:#e9ecf1;
+  --sci:#1864ab; --sci-bg:#e7f5ff;
+  --math:#5f3dc4; --math-bg:#f3f0ff;
+  --pe:#2b8a3e; --pe-bg:#ebfbee;
+  --kor:#c2410c; --kor-bg:#fff4e6;
+  --key:#c92a2a; --key-bg:#fff5f5;
+}
+#ws *{box-sizing:border-box}
+/* ===== 화면 전용 도구 ===== */
+#ws .toolbar{position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--line);padding:12px 16px}
+#ws .toolbar .row{max-width:1100px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+#ws .toolbar h1{font-size:17px;margin:0}
+#ws .toolbar .sub{font-size:13px;color:var(--muted)}
+#ws .tbtns{display:flex;flex-wrap:wrap;gap:8px}
+#ws .tbtns button{font:inherit;font-size:13.5px;padding:8px 13px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer}
+#ws .tbtns button:hover{background:#f1f3f5}
+#ws .tbtns button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+#ws .tbtns button.on{background:#fff4e6;border-color:#ffc078}
+#ws .picks{max-width:1100px;margin:10px auto 0;display:flex;flex-wrap:wrap;gap:6px;font-size:13px}
+#ws .picks label{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--soft);border:1px solid var(--line);cursor:pointer;user-select:none}
+#ws .picks label.key{background:var(--key-bg);border-color:#ffc9c9}
+#ws .picks a{color:inherit;text-decoration:none}
+#ws .overview{max-width:210mm;margin:20px auto;background:#fff;border-radius:10px;padding:18px 20px;border:1px solid var(--line)}
+#ws .overview h2{font-size:16px;margin:0 0 4px}
+#ws .overview p{margin:0 0 10px;color:var(--muted);font-size:13px}
+#ws .overview table{width:100%;border-collapse:collapse;font-size:13px}
+#ws .overview th,#ws .overview td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:left;vertical-align:top}
+#ws .overview th{color:var(--muted);font-weight:600}
+#ws .wrap{overflow-x:auto;padding:0 8px 40px}
+/* ===== A4 학습지 ===== */
+#ws .sheet{width:210mm;height:297mm;margin:0 auto 22px;background:#fff;padding:11mm 13mm 9mm;box-shadow:0 2px 10px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden;position:relative}
+#ws .sheet[contenteditable="true"]{outline:2px dashed #ffa94d;outline-offset:-4px}
+#ws .head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;border-bottom:2.5px solid var(--ink);padding-bottom:6px}
+#ws .tags{display:flex;gap:5px;margin-bottom:3px}
+#ws .tag{font-size:8.5pt;font-weight:700;padding:1px 8px;border-radius:5px;background:var(--soft);color:var(--muted)}
+#ws .tag.sci{background:var(--sci-bg);color:var(--sci)}
+#ws .tag.math{background:var(--math-bg);color:var(--math)}
+#ws .tag.pe{background:var(--pe-bg);color:var(--pe)}
+#ws .tag.kor{background:var(--kor-bg);color:var(--kor)}
+#ws .tag.key{background:var(--key-bg);color:var(--key)}
+#ws .head h2{font-size:17pt;margin:0;line-height:1.25;letter-spacing:-.3px}
+#ws .idbox{display:grid;grid-template-columns:repeat(4,auto);border:1px solid var(--ink);font-size:8.5pt;flex:none}
+#ws .idbox span{padding:2px 6px;border-right:1px solid var(--line)}
+#ws .idbox span:nth-child(odd){background:var(--soft);font-weight:700}
+#ws .idbox span:last-child{border-right:none}
+#ws .idbox .w{min-width:10mm}
+#ws .idbox .wn{min-width:20mm}
+#ws .goal{margin:6px 0 4px;font-size:9.5pt;background:var(--soft);border-radius:6px;padding:4px 10px}
+#ws .goal b{margin-right:6px}
+#ws .body{flex:1;display:flex;flex-direction:column;gap:3.2mm;margin-top:2mm;min-height:0}
+#ws .q{display:flex;gap:7px}
+#ws .qn{flex:none;width:6.2mm;height:6.2mm;border-radius:50%;background:var(--ink);color:#fff;font-size:9pt;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:.5mm}
+#ws .qc{flex:1;min-width:0}
+#ws .qt{font-weight:700;font-size:10.5pt;margin-bottom:1.5mm}
+#ws .qt small{font-weight:500;color:var(--muted);font-size:8.5pt;margin-left:4px}
+#ws .hint{font-size:8.5pt;color:var(--muted)}
+#ws .lines{background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(8mm - 1px),#b8c0cc calc(8mm - 1px),#b8c0cc 8mm);height:16mm}
+#ws .lines.l1{height:8mm}
+#ws .lines.l3{height:24mm}
+#ws .lines.l4{height:32mm}
+#ws .box{border:1px solid var(--line);border-radius:6px;padding:2mm 3mm}
+#ws .blank{display:inline-block;min-width:20mm;border-bottom:1px solid var(--ink);text-align:center;margin:0 2px}
+#ws .blank.s{min-width:12mm}
+#ws .blank.l{min-width:34mm}
+#ws .ans{color:var(--key);font-weight:700}
+#ws .sheet:not(.show-key) .ans{color:transparent}
+#ws .choice{display:inline-flex;gap:10px;flex-wrap:wrap}
+#ws .choice span::before{content:"□ ";}
+#ws table.t{width:100%;border-collapse:collapse;font-size:9.5pt}
+#ws table.t th,#ws table.t td{border:1px solid #9aa4b2;padding:1.4mm 2mm;text-align:center;vertical-align:middle}
+#ws table.t th{background:var(--soft);font-weight:700}
+#ws table.t td.l{text-align:left}
+#ws table.t.tall td{height:10mm}
+#ws table.t.tmini th,#ws table.t.tmini td{padding:1mm .6mm;font-size:8.5pt}
+#ws .cols{display:grid;grid-template-columns:1fr 1fr;gap:4mm}
+#ws .cols3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3mm}
+#ws svg{display:block;width:100%;height:auto}
+#ws .wordbank{display:flex;flex-wrap:wrap;gap:6px;font-size:9pt;margin-top:1.5mm}
+#ws .wordbank span{border:1px dashed #9aa4b2;border-radius:5px;padding:0 7px}
+#ws .foot{display:flex;justify-content:space-between;font-size:8pt;color:var(--muted);border-top:1px solid var(--line);padding-top:2mm;margin-top:2mm}
+#ws .self{display:flex;gap:10px;align-items:center;font-size:9pt}
+#ws .self b{white-space:nowrap}
+#ws .stars{letter-spacing:3px;font-size:11pt;color:#adb5bd}
+#ws .cer{border:1.5px solid var(--line);border-radius:8px;padding:2mm 3mm;display:flex;flex-direction:column}
+#ws .cer h4{margin:0;font-size:10.5pt;display:flex;gap:6px;align-items:baseline}
+#ws .cer h4 em{font-style:normal;font-size:8.5pt;color:var(--muted);font-weight:500}
+#ws .cer .lines{flex:1}
+#ws .q.grow{flex:1;min-height:0}
+#ws .q.grow .qc{display:flex;flex-direction:column}
+#ws .lines.fill{flex:1;height:auto;min-height:16mm}
+#ws .callout{font-size:9pt;background:var(--soft);border-left:3px solid var(--ink);padding:1.5mm 3mm;border-radius:0 5px 5px 0}
+/* 교사용 답안 */
+#ws .key h3{font-size:11pt;margin:0 0 1mm;color:var(--key)}
+#ws .key .kb{font-size:9pt;line-height:1.55;border-bottom:1px dashed var(--line);padding-bottom:2mm}
+#ws .key .kb p{margin:0}
+#ws .key .kb b{color:var(--ink)}
+@media (max-width:820px){
+#ws .toolbar h1{font-size:15px} }
+
+
+
+#ws{font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans CJK KR",system-ui,sans-serif;font-size:10.5pt;line-height:1.5;color:var(--ink);background:var(--bg);min-height:calc(100vh - 80px)}
+#ws .toolbar{position:static}
+#ws .fv{color:#1c7ed6;font-weight:700;font-family:inherit}
+#ws .fillmsg{max-width:1100px;margin:8px auto 0;font-size:13px;color:#1864ab;min-height:1em}
+
+@page ws{size:A4;margin:0}
+@media print{
+  body.print-ws header, body.print-ws #app{display:none!important}
+  body.print-ws #ws{background:#fff;display:block!important}
+  body.print-ws #ws .toolbar, body.print-ws #ws .overview, body.print-ws #ws .picks, body.print-ws #ws .fillmsg{display:none!important}
+  body.print-ws #ws .wrap{padding:0;overflow:visible}
+  body.print-ws #ws .sheet{page:ws;margin:0;box-shadow:none;break-after:page;page-break-after:always;outline:none!important}
+  body.print-ws #ws .sheet.skip{display:none!important}
+  #ws .tag,#ws .goal,#ws table.t th,#ws .idbox span:nth-child(odd),#ws .callout{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body.print-analysis #ws{display:none!important}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🌡️ 교실 온습도 측정기</h1>
+    <div class="status"><span class="dot" id="dot"></span><span id="statusText">연결 안 됨 · [보드 연결]을 눌러 주세요</span></div>
+  </div>
+  <nav class="appnav">
+    <button class="active" data-view="app">📈 측정기</button>
+    <button data-view="ws">📝 학습지</button>
+  </nav>
+  <div class="btns">
+    <button class="primary" id="btnConnect">🔌 보드 연결</button>
+    <button id="btnDisconnect" disabled>연결 끊기</button>
+    <button id="btnDemo">🧪 연습 모드</button>
+    <button id="btnPause" disabled>⏸ 일시정지</button>
+    <button id="btnReset">↺ 초기화</button>
+    <button id="btnCsv">⬇ CSV 저장</button>
+  </div>
+</header>
+
+<main id="app">
+  <div class="notice" id="notice"></div>
+
+  <!-- 실험 표시 -->
+  <section class="card markerBar">
+    <h2 class="sec">🚩 실험 표시 <span class="state">버튼을 누르면 그 순간이 그래프에 세로선으로 표시돼요</span></h2>
+    <div class="groups">
+      <div class="mgroup" style="--c:var(--m-breath)">
+        <span class="mtitle">① 입김</span>
+        <button class="mbtn start" data-m="breath_start">▶ 입김 시작</button>
+        <button class="mbtn" data-m="breath_end">■ 입김 끝</button>
+      </div>
+      <div class="mgroup" style="--c:var(--m-hand)">
+        <span class="mtitle">② 손 감싸기</span>
+        <button class="mbtn start" data-m="hand_start">▶ 손 감싸기</button>
+        <button class="mbtn" data-m="hand_end">■ 손 떼기</button>
+      </div>
+      <div class="mgroup" style="--c:var(--m-ice)">
+        <span class="mtitle">⑤ 얼음물</span>
+        <button class="mbtn start" data-m="ice_start">▶ 얼음물 컵 놓기</button>
+        <button class="mbtn" data-m="dew">💧 이슬 맺힘</button>
+        <button class="mbtn" data-m="ice_end">■ 컵 치우기</button>
+      </div>
+      <div class="mgroup" style="--c:var(--m-custom)">
+        <input type="text" id="mText" placeholder="직접 입력 (예: 창문 열기)" maxlength="20" style="width:190px">
+        <button class="mbtn" id="mAdd">표시</button>
+      </div>
+    </div>
+    <div class="chips" id="mList"></div>
+  </section>
+
+  <section class="cards">
+    <div class="card" id="tCard">
+      <div class="label">온도 <span class="badge" id="tBadge">대기 중</span></div>
+      <div class="big"><span id="tVal">--.-</span><span class="unit">℃</span></div>
+      <div class="mini"><span>최저 <b id="tMin">-</b></span><span>최고 <b id="tMax">-</b></span><span>평균 <b id="tAvg">-</b></span></div>
+    </div>
+    <div class="card" id="hCard">
+      <div class="label">습도 <span class="badge" id="hBadge">대기 중</span></div>
+      <div class="big"><span id="hVal">--.-</span><span class="unit">%</span></div>
+      <div class="mini"><span>최저 <b id="hMin">-</b></span><span>최고 <b id="hMax">-</b></span><span>평균 <b id="hAvg">-</b></span></div>
+    </div>
+    <div class="card">
+      <div class="label">불쾌지수 <span class="badge" id="diBadge">대기 중</span></div>
+      <div class="big"><span id="diVal">--</span></div>
+      <div class="desc" id="diDesc">온도와 습도로 계산한, 사람이 느끼는 덥고 습한 정도예요.</div>
+    </div>
+  </section>
+
+  <section class="two">
+    <div class="card">
+      <h2 class="sec">실시간 변화 그래프
+        <span class="legend">
+          <span><i style="background:var(--temp)"></i>온도(℃, 왼쪽)</span>
+          <span><i style="background:var(--hum)"></i>습도(%, 오른쪽)</span>
+          <select id="range">
+            <option value="30">최근 1분</option>
+            <option value="150" selected>최근 5분</option>
+            <option value="450">최근 15분</option>
+            <option value="0">전체</option>
+          </select>
+        </span>
+      </h2>
+      <canvas id="chart"></canvas>
+    </div>
+    <div class="card">
+      <h2 class="sec">측정 기록 <span class="state">총 <b id="count">0</b>회</span></h2>
+      <table>
+        <thead><tr><th>시각</th><th>온도</th><th>습도</th><th>표시</th></tr></thead>
+        <tbody id="log"><tr><td colspan="4" class="empty">아직 측정값이 없어요</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 그래프 분석표 -->
+  <section class="card" id="analysis">
+    <h2 class="sec">📊 그래프 분석표
+      <span class="who noPrint">
+        <label>이름·모둠 <input type="text" id="who" placeholder="예: 3모둠 김○○" style="width:170px"></label>
+        <button id="btnPrint">🖨 분석표 인쇄</button>
+        <button class="toWs" id="btnToWs">📝 학습지에 측정값 채우기</button>
+      </span>
+    </h2>
+    <div class="tabs">
+      <button class="tab active" data-p="breath">① 입김 → 습도</button>
+      <button class="tab" data-p="hand">② 손 감싸기 → 온도</button>
+    </div>
+
+    <!-- ① 입김 -->
+    <div class="panel active" id="panel-breath">
+      <h2 class="ptitle">① 입김 불기 실험 · 그래프 분석표 <span class="whoPrint"></span></h2>
+      <div class="panelGrid">
+        <div>
+          <canvas class="seg" id="segBreath"></canvas>
+          <p class="steps"><b>진행 순서</b> [▶ 입김 시작] → 센서에 5~10초 입김 불기 → [■ 입김 끝] → 30초 이상 기다리며 그래프 관찰</p>
+        </div>
+        <table class="kv"><tbody id="sumBreath"></tbody></table>
+      </div>
+      <h3>교과 연결 분석표</h3>
+      <table class="ana">
+        <thead><tr><th>교과</th><th>분석 질문</th><th>데이터에서 찾은 값</th><th>해석 (직접 쓰기)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="subj sci">과학 · 호흡</span></td><td>입김을 불자 습도는 어떻게 변했나요? 이것으로 날숨에 무엇이 들어 있다고 말할 수 있나요?</td><td class="auto" id="b1">-</td><td><textarea></textarea></td></tr>
+          <tr><td><span class="subj sci">과학 · 호흡</span></td><td>습도와 함께 온도도 변했나요? 날숨의 온도에 대해 말해 보세요.</td><td class="auto" id="b2">-</td><td><textarea></textarea></td></tr>
+          <tr><td><span class="subj sci">과학 · 증발</span></td><td>입김을 멈춘 뒤 습도가 다시 낮아진 까닭은 무엇일까요?</td><td class="auto" id="b3">-</td><td><textarea></textarea></td></tr>
+          <tr><td><span class="subj math">수학 · 그래프 해석</span></td><td>그래프를 증가 구간, 가장 높은 점, 감소 구간으로 나누어 설명해 보세요.</td><td class="auto" id="b4">-</td><td><textarea></textarea></td></tr>
+          <tr><td><span class="subj math">수학 · 변화율</span></td><td>습도가 가장 빠르게 증가한 구간은 언제이고, 그때 1초에 몇 %p씩 변했나요?</td><td class="auto" id="b5">-</td><td><textarea></textarea></td></tr>
+          <tr><td><span class="subj math">수학 · 평균 변화율</span></td><td>시작부터 최고점까지의 평균 변화율을 구해 보세요. (변화량 ÷ 걸린 시간)</td><td class="auto" id="b6">-</td><td><textarea></textarea></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ② 손 감싸기 -->
+    <div class="panel" id="panel-hand">
+      <h2 class="ptitle">② 손으로 감싸기 실험 · 그래프 분석표 <span class="whoPrint"></span></h2>
+      <div class="panelGrid">
+        <div>
+          <canvas class="seg" id="segHand"></canvas>
+          <p class="steps"><b>진행 순서</b> [▶ 손 감싸기] → 센서를 손으로 30초~1분 감싸기 → [■ 손 떼기] → 1~2분 기다리며 식는 모습 관찰</p>
+        </div>
+        <table class="kv"><tbody id="sumHand"></tbody></table>
+      </div>
+      <h3>교과 연결 분석표</h3>
+      <table class="ana">
+        <thead><tr><th>교과</th><th>분석 질문</th><th>데이터에서 찾은 값</th><th>해석 (직접 쓰기)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="subj sci">과학 · 열 전달</span></td><td>손으로 감싸자 온도는 어떻게 변했나요? 열은 어디에서 어디로 이동했나요?</td><td class="auto" id="h1">-</td><td><textarea></textarea></td></tr>
+          <tr><td><span class="subj sci">과학 · 열평형</span></td><td>센서 온도가 체온(약 36.5℃)까지 오르지 않은 까닭은 무엇일까요?</td><td class="auto" id="h2">-</td><td><textarea></textarea></td></tr>
+          <tr><td><span class="subj sci">과학 · 열 전달</span></td><td>손을 뗀 뒤 온도가 내려가는 데 얼마나 걸렸나요? 열은 어디로 갔을까요?</td><td class="auto" id="h3">-</td><td><textarea></textarea></td></tr>
+          <tr><td><span class="subj pe">체육·보건 · 체온</span></td><td>손을 감싸는 동안 습도도 변했나요? 우리 몸에서 나오는 무엇 때문일까요?</td><td class="auto" id="h4">-</td><td><textarea></textarea></td></tr>
+          <tr><td><span class="subj pe">체육·보건 · 체온 조절</span></td><td>운동 후 몸이 식는 과정을 이 그래프의 감소 구간과 비교해 보세요. 빨리 식으려면 어떻게 해야 할까요?</td><td class="auto" id="h5">-</td><td><textarea></textarea></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card guide">
+    <b>📋 교실 환경 기준 (학교보건법 시행규칙)</b> — 실내 온도 <b>18~28℃</b>, 비교습도 <b>30~80%</b>. 범위를 벗어나면 카드 테두리가 빨갛게 바뀌어요.<br>
+    <b>🔧 사용 방법</b>
+    <ol>
+      <li>DHT11 센서 DATA → <b>D11</b>, VCC → <b>5V</b>, GND → <b>GND</b>에 연결해요.</li>
+      <li>아두이노 IDE로 <b>classroom_dht11.ino</b>를 오렌지보드에 업로드하고, <b>시리얼 모니터는 닫아요</b>.</li>
+      <li>이 파일을 <b>크롬 또는 엣지</b>로 열고 [보드 연결] → 오렌지보드 포트(COM○ / usbserial)를 선택해요.</li>
+      <li>실험할 때 <b>[▶ 시작]과 [■ 끝] 버튼</b>을 눌러 두면 그래프에 표시되고, 분석표가 그 구간을 자동으로 계산해요.</li>
+      <li>실수로 누른 표시는 아래 목록의 <b>×</b>로 지울 수 있어요. 같은 실험을 다시 하면 <b>가장 최근 실험</b>이 분석돼요.</li>
+    </ol>
+    보드가 없을 때는 [연습 모드]를 켜고 실험 버튼을 눌러 보세요. 가짜 데이터가 실험처럼 반응해요.
+  </section>
+</main>
+
+<div id="ws" hidden>
+
+
+<div class="toolbar">
+  <div class="row">
+    <div>
+      <h1>📝 온습도 교과 연결 학습지</h1>
+      <div class="sub">교실 온습도 측정기 실험 ① 입김 · ② 손 감싸기 · ⑤ 얼음물과 함께 써요</div>
+    </div>
+    <div class="tbtns">
+      <button id="wsFill" title="측정기 탭의 실험 데이터로 기록 칸을 채워요">📥 측정값 채우기</button>
+      <button id="wsClear">지우기</button>
+      <button id="wsKey">👀 답안 보기</button>
+      <button id="wsEdit">✏️ 문구 수정</button>
+      <button class="primary" id="wsPrint">🖨 선택한 학습지 인쇄</button>
+    </div>
+  </div>
+  <div class="picks" id="picks"></div>
+  <div class="fillmsg" id="fillMsg"></div>
+</div>
+
+<section class="overview">
+  <h2>활동 안내 (교사용)</h2>
+  <p>측정기 탭에서 실험을 마친 뒤 [📥 측정값 채우기]를 누르면 기록 칸(학습지 1·2·4·5·7)이 파란 글씨로 채워져요. 학생이 직접 옮겨 적게 하려면 채우지 않고 인쇄하세요. 인쇄할 학습지를 위쪽 체크로 고른 뒤 [선택한 학습지 인쇄]를 누르세요. 한 장에 A4 한 쪽이에요. [✏️ 문구 수정]을 켜면 질문을 학교 상황에 맞게 바로 고칠 수 있어요(새로고침하면 원래대로 돌아가요).</p>
+  <table>
+    <thead><tr><th>학습지</th><th>실험</th><th>교과</th><th>활동 유형</th><th>시간</th></tr></thead>
+    <tbody>
+      <tr><td>1. 입김 속에는 무엇이 있을까?</td><td>①</td><td>과학</td><td>예상–관찰–설명(POE), 빈칸 채우기</td><td>10분</td></tr>
+      <tr><td>2. 습도 그래프 직접 그리기</td><td>①</td><td>수학</td><td>표 → 그래프, 구간 나누기, 평균 변화율</td><td>15분</td></tr>
+      <tr><td>3. 그래프를 보고 실험 맞히기</td><td>①②⑤</td><td>수학</td><td>그래프 짝짓기, 그래프 이야기 짓기, 예상 그래프 그리기</td><td>10분</td></tr>
+      <tr><td>4. 손의 열은 어디로 갈까?</td><td>②</td><td>과학</td><td>열 이동 화살표 그리기, 개념 빈칸, 변인 통제 실험 설계</td><td>15분</td></tr>
+      <tr><td>5. 내 몸의 온도 조절 장치</td><td>②</td><td>체육·보건</td><td>실험↔몸 대응표, 조건별 운동 안전 수칙 만들기</td><td>10분</td></tr>
+      <tr><td>6. 데이터로 말하기</td><td>①②</td><td>국어·융합</td><td>주장–근거–추론 글쓰기, 동료 평가</td><td>15분</td></tr>
+      <tr><td>7. 컵에 맺힌 물방울의 정체</td><td>⑤</td><td>과학</td><td>포화 수증기량 표 읽기, 이슬점 계산</td><td>15분</td></tr>
+      <tr><td>교사용 예시 답안</td><td>전체</td><td>-</td><td>예시 답과 지도 포인트</td><td>-</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<div class="wrap" id="sheets">
+
+<!-- ================= 1. 과학: 입김 POE ================= -->
+<section class="sheet" id="s1" data-name="1. 입김 속 (과학)">
+  <div class="head">
+    <div><div class="tags"><span class="tag sci">과학 · 호흡</span><span class="tag">실험 ① 입김 불기</span></div>
+      <h2>입김 속에는 무엇이 있을까?</h2></div>
+    <div class="idbox"><span>반</span><span class="w"></span><span>이름</span><span class="wn"></span></div>
+  </div>
+  <div class="goal"><b>🎯 학습 목표</b>센서 측정값을 근거로 날숨에 들어 있는 물질을 설명할 수 있다.</div>
+  <div class="body">
+    <div class="q"><div class="qn">1</div><div class="qc">
+      <div class="qt">예상하기 <small>실험 전에 써요</small></div>
+      <table class="t">
+        <tr><th style="width:22%">센서에 입김을 불면</th><th>올라간다</th><th>내려간다</th><th>거의 그대로</th></tr>
+        <tr><th>온도는?</th><td>□</td><td>□</td><td>□</td></tr>
+        <tr><th>습도는?</th><td>□</td><td>□</td><td>□</td></tr>
+      </table>
+      <div style="margin-top:2mm">그렇게 예상한 까닭은?</div>
+      <div class="lines"></div>
+    </div></div>
+
+    <div class="q"><div class="qn">2</div><div class="qc">
+      <div class="qt">관찰하기 <small>측정기 탭의 그래프 분석표 ①에서 값을 옮겨 적어요</small></div>
+      <div class="cols" style="grid-template-columns:1.25fr 1fr">
+        <table class="t">
+          <tr><th></th><th>시작 전</th><th>최고(최저)</th><th>변화량</th></tr>
+          <tr><th>온도(℃)</th><td data-f="s1_tb"></td><td data-f="s1_tp"></td><td data-f="s1_td"></td></tr>
+          <tr><th>습도(%)</th><td data-f="s1_hb"></td><td data-f="s1_hp"></td><td data-f="s1_hd"></td></tr>
+          <tr><th colspan="2">최고점까지 걸린 시간</th><td colspan="2" style="text-align:right"><span class="fv" data-f="s1_tt"></span> 초</td></tr>
+        </table>
+        <div class="box"><div class="hint">습도 그래프 모양을 간단히 그려 보세요.</div><svg id="g1"></svg></div>
+      </div>
+    </div></div>
+
+    <div class="q"><div class="qn">3</div><div class="qc">
+      <div class="qt">설명하기</div>
+      <div>내 예상은 실험 결과와 <span class="choice"><span>같았다</span><span>달랐다</span></span></div>
+      <div style="margin-top:2mm;line-height:2.2">
+        입김을 불자 <span class="blank"><span class="ans">습도</span></span>가 크게 올라갔고,
+        <span class="blank"><span class="ans">온도</span></span>는 조금 올라갔다.<br>
+        따라서 날숨에는 <span class="blank l"><span class="ans">수증기</span></span>가 많이 들어 있고, 날숨의 온도는 교실 공기보다 <span class="blank s"><span class="ans">높다</span></span>.
+      </div>
+      <div class="wordbank"><b style="border:none;padding:0">낱말 상자</b><span>온도</span><span>습도</span><span>산소</span><span>수증기</span><span>이산화 탄소</span><span>높다</span><span>낮다</span></div>
+    </div></div>
+
+    <div class="q grow"><div class="qn">4</div><div class="qc">
+      <div class="qt">더 생각하기</div>
+      <div>(1) 입김을 멈추자 습도가 다시 낮아진 까닭은 무엇일까요?</div>
+      <div class="lines fill"></div>
+      <div style="margin-top:1.5mm">(2) 추운 겨울날 입김이 하얗게 보이는 까닭을 이 실험과 연결해 설명해 보세요.</div>
+      <div class="lines fill"></div>
+    </div></div>
+  </div>
+  <div class="foot"><div class="self"><b>스스로 평가</b> 예상–결과를 비교했어요 <span class="stars">☆☆☆</span> 측정값으로 설명했어요 <span class="stars">☆☆☆</span></div><span>온습도 측정기 학습지 1</span></div>
+</section>
+
+<!-- ================= 2. 수학: 그래프 그리기 ================= -->
+<section class="sheet" id="s2" data-name="2. 그래프 그리기 (수학)">
+  <div class="head">
+    <div><div class="tags"><span class="tag math">수학 · 그래프와 변화율</span><span class="tag">실험 ① 입김 불기</span></div>
+      <h2>습도 그래프 직접 그리기</h2></div>
+    <div class="idbox"><span>반</span><span class="w"></span><span>이름</span><span class="wn"></span></div>
+  </div>
+  <div class="goal"><b>🎯 학습 목표</b>시간에 따른 습도 변화를 그래프로 나타내고, 평균 변화율을 구할 수 있다.</div>
+  <div class="body">
+    <div class="q"><div class="qn">1</div><div class="qc">
+      <div class="qt">측정값 옮겨 적기 <small>측정기 탭의 측정 기록에서 [입김 시작] 시각을 0초로 정하고 2초 간격으로 적어요</small></div>
+      <table class="t tmini" id="tbl2"></table>
+    </div></div>
+
+    <div class="q"><div class="qn">2</div><div class="qc">
+      <div class="qt">그래프 그리기 <small>세로축 눈금은 측정값에 맞게 스스로 정해 적어요</small></div>
+      <svg id="g2"></svg>
+      <div class="hint" style="margin-top:1mm">💡 점을 찍은 뒤 이웃한 점을 선으로 이어요. [입김 끝]을 누른 시각에 세로 점선을 그어 보세요.</div>
+    </div></div>
+
+    <div class="q"><div class="qn">3</div><div class="qc">
+      <div class="qt">그래프 구간 나누기</div>
+      <table class="t">
+        <tr><th style="width:24%">증가 구간</th><td><span class="blank s"></span>초 ~ <span class="blank s"></span>초</td><th style="width:24%">가장 높은 점</th><td>(<span class="blank s"></span>초, <span class="blank s"></span>%)</td></tr>
+        <tr><th>감소 구간</th><td><span class="blank s"></span>초 ~ <span class="blank s"></span>초</td><th>가장 가파른 구간</th><td><span class="blank s"></span>초 ~ <span class="blank s"></span>초</td></tr>
+      </table>
+    </div></div>
+
+    <div class="q grow"><div class="qn">4</div><div class="qc">
+      <div class="qt">평균 변화율 구하기 <small>0초부터 가장 높은 점까지</small></div>
+      <div style="font-size:11pt;line-height:2.4">
+        평균 변화율 = (나중 습도 − 처음 습도) ÷ (나중 시간 − 처음 시간)<br>
+        = ( <span class="blank s"></span> − <span class="blank s"></span> ) ÷ ( <span class="blank s"></span> − <span class="blank s"></span> ) = <span class="blank"></span> %p/초
+      </div>
+      <div>가장 가파른 구간의 변화율과 비교하면 어느 쪽이 더 큰가요? 그 까닭은?</div>
+      <div class="lines fill"></div>
+    </div></div>
+  </div>
+  <div class="foot"><div class="self"><b>스스로 평가</b> 눈금을 알맞게 정했어요 <span class="stars">☆☆☆</span> 변화율을 계산했어요 <span class="stars">☆☆☆</span></div><span>온습도 측정기 학습지 2</span></div>
+</section>
+
+<!-- ================= 3. 수학: 그래프 짝짓기 ================= -->
+<section class="sheet" id="s3" data-name="3. 그래프 맞히기 (수학)">
+  <div class="head">
+    <div><div class="tags"><span class="tag math">수학 · 그래프 해석</span><span class="tag">실험 ①②⑤</span></div>
+      <h2>그래프를 보고 실험 맞히기</h2></div>
+    <div class="idbox"><span>반</span><span class="w"></span><span>이름</span><span class="wn"></span></div>
+  </div>
+  <div class="goal"><b>🎯 학습 목표</b>그래프의 모양을 보고 어떤 상황이었는지 해석하고, 상황을 그래프로 나타낼 수 있다.</div>
+  <div class="body">
+    <div class="q"><div class="qn">1</div><div class="qc">
+      <div class="qt">어떤 실험일까? <small>— 실선: 온도, 점선: 습도. 상황 하나는 짝이 없어요.</small></div>
+      <div class="cols3">
+        <div class="box"><b>그래프 A</b><svg id="mA"></svg></div>
+        <div class="box"><b>그래프 B</b><svg id="mB"></svg></div>
+        <div class="box"><b>그래프 C</b><svg id="mC"></svg></div>
+      </div>
+      <div class="wordbank" style="margin-top:2mm"><span>㉠ 센서에 입김 불기</span><span>㉡ 센서를 손으로 감싸기</span><span>㉢ 얼음물 컵 옆에 센서 두기</span><span>㉣ 헤어드라이어 따뜻한 바람 쐬기</span></div>
+      <table class="t" style="margin-top:2mm">
+        <tr><th style="width:12%">그래프</th><th style="width:14%">상황</th><th>그렇게 생각한 까닭 (온도·습도 변화를 모두 써요)</th></tr>
+        <tr><th>A</th><td><span class="ans">㉠</span></td><td class="l"></td></tr>
+        <tr><th>B</th><td><span class="ans">㉡</span></td><td class="l"></td></tr>
+        <tr><th>C</th><td><span class="ans">㉢</span></td><td class="l"></td></tr>
+      </table>
+      <div style="margin-top:1.5mm">짝이 없는 상황 <span class="blank s"><span class="ans">㉣</span></span>의 그래프는 어떤 모양일지 말로 설명해 보세요.</div>
+      <div class="lines l1"></div>
+    </div></div>
+
+    <div class="q"><div class="qn">2</div><div class="qc">
+      <div class="qt">그래프 이야기 짓기 <small>누군가 센서로 무엇을 했는지 이야기로 꾸며 보세요</small></div>
+      <div class="cols" style="grid-template-columns:.8fr 1.45fr">
+        <div class="box"><b>그래프 D</b> <span class="hint">(온도)</span><svg id="mD"></svg></div>
+        <div class="lines l3"></div>
+      </div>
+    </div></div>
+
+    <div class="q"><div class="qn">3</div><div class="qc">
+      <div class="qt">예상 그래프 그리기</div>
+      <div class="callout">상황: 센서를 손으로 <b>1분</b> 감싸고 있다가, 손을 떼자마자 센서에 입김을 <b>10초</b> 불었다. 그 뒤 1분 동안 그대로 두었다.</div>
+      <svg id="g3" style="margin-top:1.5mm"></svg>
+      <div class="hint">온도는 실선, 습도는 점선으로 그려요. 예상을 그린 뒤 실제로 실험해서 다른 색으로 겹쳐 그려 보세요.</div>
+    </div></div>
+  </div>
+  <div class="foot"><div class="self"><b>스스로 평가</b> 두 변수를 함께 해석했어요 <span class="stars">☆☆☆</span> 상황을 그래프로 나타냈어요 <span class="stars">☆☆☆</span></div><span>온습도 측정기 학습지 3</span></div>
+</section>
+
+<!-- ================= 4. 과학: 열의 이동 ================= -->
+<section class="sheet" id="s4" data-name="4. 열의 이동 (과학)">
+  <div class="head">
+    <div><div class="tags"><span class="tag sci">과학 · 열의 이동과 열평형</span><span class="tag">실험 ② 손 감싸기</span></div>
+      <h2>손의 열은 어디로 갈까?</h2></div>
+    <div class="idbox"><span>반</span><span class="w"></span><span>이름</span><span class="wn"></span></div>
+  </div>
+  <div class="goal"><b>🎯 학습 목표</b>온도 변화 그래프를 열의 이동과 열평형으로 설명하고, 궁금한 점을 확인할 실험을 설계할 수 있다.</div>
+  <div class="body">
+    <div class="q"><div class="qn">1</div><div class="qc">
+      <div class="qt">측정값 기록 <small>측정기 탭의 그래프 분석표 ②</small></div>
+      <table class="t">
+        <tr><th>시작 전 온도</th><th>최고 온도</th><th>변화량</th><th>최고점까지 걸린 시간</th><th>손 뗀 뒤 절반 회복 시간</th></tr>
+        <tr><td style="text-align:right"><span class="fv" data-f="s4_b"></span> ℃</td><td style="text-align:right"><span class="fv" data-f="s4_p"></span> ℃</td><td style="text-align:right"><span class="fv" data-f="s4_d"></span> ℃</td><td style="text-align:right"><span class="fv" data-f="s4_t"></span> 초</td><td style="text-align:right"><span class="fv" data-f="s4_r"></span> 초</td></tr>
+      </table>
+    </div></div>
+
+    <div class="q"><div class="qn">2</div><div class="qc">
+      <div class="qt">열의 이동을 화살표로 그리기 <small>열이 이동하는 방향으로 화살표(→)를 그리고, 빈칸에 온도를 써요</small></div>
+      <div class="cols">
+        <div class="box"><b>손으로 감싸는 동안</b><svg id="heat1"></svg></div>
+        <div class="box"><b>손을 뗀 뒤</b><svg id="heat2"></svg></div>
+      </div>
+    </div></div>
+
+    <div class="q"><div class="qn">3</div><div class="qc">
+      <div class="qt">개념 정리</div>
+      <div style="line-height:2.3">
+        온도가 다른 두 물체가 맞닿으면 열은 온도가 <span class="blank s"><span class="ans">높은</span></span> 물체에서 <span class="blank s"><span class="ans">낮은</span></span> 물체로 이동한다.
+        시간이 지나 두 물체의 온도가 같아져 더 이상 온도가 변하지 않는 상태를 <span class="blank"><span class="ans">열평형</span></span>이라고 한다.
+        손을 감싸는 동안 그래프가 점점 <span class="blank s"><span class="ans">완만</span></span>해지는 것은 손과 센서의 온도 차이가 <span class="blank s"><span class="ans">줄어</span></span>들기 때문이다.
+      </div>
+    </div></div>
+
+    <div class="q grow"><div class="qn">4</div><div class="qc">
+      <div class="qt">탐구 설계하기</div>
+      <div>센서 온도가 체온(약 36.5℃)까지 오르지 않았어요. 그 까닭을 가설로 세워 보세요.</div>
+      <div class="lines"></div>
+      <div style="margin:2mm 0 1mm">내 가설을 확인하는 실험을 설계해 보세요.</div>
+      <table class="t tall">
+        <tr><th style="width:33%">다르게 할 것 (조작 변인)</th><th style="width:34%">같게 할 것 (통제 변인)</th><th>측정할 것 (종속 변인)</th></tr>
+        <tr><td style="height:16mm"></td><td></td><td></td></tr>
+      </table>
+      <div style="margin-top:1.5mm">예상 결과: 가설이 맞다면 그래프는 어떻게 나올까요?</div>
+      <div class="lines fill"></div>
+    </div></div>
+  </div>
+  <div class="foot"><div class="self"><b>스스로 평가</b> 열의 이동 방향을 설명했어요 <span class="stars">☆☆☆</span> 변인을 구분했어요 <span class="stars">☆☆☆</span></div><span>온습도 측정기 학습지 4</span></div>
+</section>
+
+<!-- ================= 5. 체육·보건 ================= -->
+<section class="sheet" id="s5" data-name="5. 체온 조절 (체육·보건)">
+  <div class="head">
+    <div><div class="tags"><span class="tag pe">체육·보건 · 체온 조절</span><span class="tag">실험 ② 손 감싸기</span></div>
+      <h2>내 몸의 온도 조절 장치</h2></div>
+    <div class="idbox"><span>반</span><span class="w"></span><span>이름</span><span class="wn"></span></div>
+  </div>
+  <div class="goal"><b>🎯 학습 목표</b>실험 결과를 운동할 때 몸의 변화와 연결하고, 온습도에 따른 운동 안전 수칙을 만들 수 있다.</div>
+  <div class="body">
+    <div class="q"><div class="qn">1</div><div class="qc">
+      <div class="qt">손에서 나온 것은 열만이 아니에요</div>
+      <div>손으로 감싸는 동안 습도는 <span class="blank s"><span class="fv" data-f="s5_a"></span></span>%에서 <span class="blank s"><span class="fv" data-f="s5_b"></span></span>%로 변했어요.</div>
+      <div style="margin-top:1mm">습도가 변한 까닭은 우리 몸의 무엇 때문일까요?</div>
+      <div class="lines"></div>
+    </div></div>
+
+    <div class="q"><div class="qn">2</div><div class="qc">
+      <div class="qt">실험과 내 몸 연결하기 <small>실험에서 일어난 일에 알맞은 몸의 상황을 써요</small></div>
+      <table class="t tall">
+        <tr><th style="width:42%">실험에서 일어난 일</th><th>운동할 때 내 몸에서 일어나는 일</th></tr>
+        <tr><td class="l">손이 센서에 열을 주어 온도가 올라감</td><td class="l"><span class="ans">운동으로 근육에서 열이 많이 나 체온이 올라감</span></td></tr>
+        <tr><td class="l">손 주변의 습도가 올라감</td><td class="l"><span class="ans">땀이 나고 피부에서 수증기가 증발함</span></td></tr>
+        <tr><td class="l">손을 떼자 온도가 천천히 내려감</td><td class="l"><span class="ans">운동을 멈추고 쉬면 체온이 서서히 돌아옴</span></td></tr>
+        <tr><td class="l">처음 온도로 돌아오는 데 시간이 걸림</td><td class="l"><span class="ans">운동 후 정리 운동·충분한 휴식이 필요함</span></td></tr>
+      </table>
+    </div></div>
+
+    <div class="q"><div class="qn">3</div><div class="qc">
+      <div class="qt">우리 반 운동 안전 수칙 만들기 <small>조건마다 운동 강도와 물 마시기 규칙을 정해요</small></div>
+      <table class="t">
+        <tr><th style="width:16%"></th><th>온도가 낮을 때 (24℃ 이하)</th><th>온도가 높을 때 (28℃ 이상)</th></tr>
+        <tr><th>습도가 낮을 때<br>(40% 이하)</th><td class="l" style="height:19mm;vertical-align:top">운동 강도:<br><br>물 마시기:</td><td class="l" style="vertical-align:top">운동 강도:<br><br>물 마시기:</td></tr>
+        <tr><th>습도가 높을 때<br>(70% 이상)</th><td class="l" style="height:19mm;vertical-align:top">운동 강도:<br><br>물 마시기:</td><td class="l" style="vertical-align:top">운동 강도:<br><br>물 마시기:</td></tr>
+      </table>
+      <div class="hint" style="margin-top:1mm">💡 습도가 높으면 땀이 잘 증발하지 않아요. 이것이 체온에 어떤 영향을 줄지 생각해 보세요.</div>
+    </div></div>
+
+    <div class="q"><div class="qn">4</div><div class="qc">
+      <div class="qt">운동 후 몸을 빨리 식히는 방법 3가지와 과학적 까닭</div>
+      <table class="t">
+        <tr><th style="width:38%">방법</th><th>과학적 까닭</th></tr>
+        <tr><td style="height:13mm"></td><td></td></tr>
+        <tr><td style="height:13mm"></td><td></td></tr>
+        <tr><td style="height:13mm"></td><td></td></tr>
+      </table>
+    </div></div>
+  </div>
+  <div class="foot"><div class="self"><b>스스로 평가</b> 실험과 생활을 연결했어요 <span class="stars">☆☆☆</span> 근거 있는 수칙을 만들었어요 <span class="stars">☆☆☆</span></div><span>온습도 측정기 학습지 5</span></div>
+</section>
+
+<!-- ================= 6. 국어·융합: CER ================= -->
+<section class="sheet" id="s6" data-name="6. 데이터로 말하기 (국어·융합)">
+  <div class="head">
+    <div><div class="tags"><span class="tag kor">국어·융합 · 논증하기</span><span class="tag">실험 ①②</span></div>
+      <h2>데이터로 말하기: 주장–근거–추론</h2></div>
+    <div class="idbox"><span>반</span><span class="w"></span><span>이름</span><span class="wn"></span></div>
+  </div>
+  <div class="goal"><b>🎯 학습 목표</b>측정 데이터를 근거로 주장을 펼치는 글을 쓰고, 친구의 글을 기준에 따라 평가할 수 있다.</div>
+  <div class="body">
+    <div class="q"><div class="qn">1</div><div class="qc">
+      <div class="qt">주제 고르기 <small>하나를 골라 □에 표시하거나 직접 써요</small></div>
+      <div class="choice" style="gap:14px"><span>날숨에는 수증기가 들어 있다</span><span>손의 열은 센서로 이동했다</span><span>입김과 손 중 센서를 더 빨리 변화시키는 것은 ______이다</span></div>
+      <div style="margin-top:1mm">□ 내가 정한 주제: <span class="blank" style="min-width:110mm"></span></div>
+    </div></div>
+
+    <div class="q" style="flex:1"><div class="qn">2</div><div class="qc" style="display:flex;flex-direction:column">
+      <div class="qt">논증 글쓰기</div>
+      <div style="display:flex;flex-direction:column;gap:2.5mm;flex:1">
+        <div class="cer" style="flex:.7"><h4>🗣 주장 <em>무엇을 말하고 싶나요? 한 문장으로 써요.</em></h4><div class="lines"></div></div>
+        <div class="cer" style="flex:1.2"><h4>📊 근거 <em>측정값을 숫자와 단위로 2개 이상 써요. 예) 습도가 50.2%에서 93.0%로 10초 만에 42.8%p 올랐다.</em></h4><div class="lines"></div></div>
+        <div class="cer" style="flex:1.2"><h4>🔗 추론 <em>근거가 왜 주장을 뒷받침하는지 과학 원리로 이어 줘요.</em></h4><div class="lines"></div></div>
+      </div>
+    </div></div>
+
+    <div class="q"><div class="qn">3</div><div class="qc">
+      <div class="qt">친구 글 평가하기 <small>짝과 학습지를 바꿔 ○, △, ✕로 표시해요</small></div>
+      <table class="t">
+        <tr><th class="l" style="text-align:left">평가 기준</th><th style="width:10%">○</th><th style="width:10%">△</th><th style="width:10%">✕</th></tr>
+        <tr><td class="l">주장이 한 문장으로 분명하게 드러난다.</td><td></td><td></td><td></td></tr>
+        <tr><td class="l">근거에 측정값(숫자)과 단위가 정확히 들어 있다.</td><td></td><td></td><td></td></tr>
+        <tr><td class="l">추론에서 과학 원리(증발, 열의 이동 등)를 사용했다.</td><td></td><td></td><td></td></tr>
+        <tr><td class="l">센서 오차나 다른 가능성도 생각했다.</td><td></td><td></td><td></td></tr>
+      </table>
+      <div style="margin-top:1.5mm">평가한 친구: <span class="blank"></span> 　한마디 조언:</div>
+      <div class="lines l1"></div>
+    </div></div>
+  </div>
+  <div class="foot"><div class="self"><b>스스로 평가</b> 숫자로 근거를 댔어요 <span class="stars">☆☆☆</span> 원리로 이어 설명했어요 <span class="stars">☆☆☆</span></div><span>온습도 측정기 학습지 6</span></div>
+</section>
+
+<!-- ================= 7. 과학: 이슬점 ================= -->
+<section class="sheet" id="s7" data-name="7. 물방울의 정체 (과학)">
+  <div class="head">
+    <div><div class="tags"><span class="tag sci">과학 · 기권과 날씨</span><span class="tag">실험 ⑤ 얼음물 컵</span></div>
+      <h2>컵에 맺힌 물방울의 정체</h2></div>
+    <div class="idbox"><span>반</span><span class="w"></span><span>이름</span><span class="wn"></span></div>
+  </div>
+  <div class="goal"><b>🎯 학습 목표</b>포화 수증기량 표를 이용해 교실 공기의 이슬점을 구하고, 응결 현상을 설명할 수 있다.</div>
+  <div class="body">
+    <div class="q"><div class="qn">1</div><div class="qc">
+      <div class="qt">예상하기 <small>얼음물 컵 바깥에 맺힌 물방울은 어디에서 왔을까요?</small></div>
+      <div class="choice"><span>컵 안의 물이 스며 나왔다</span><span>공기 중의 수증기가 물이 되었다</span><span>얼음에서 나온 김이 붙었다</span><span>기타: ____________</span></div>
+    </div></div>
+
+    <div class="q"><div class="qn">2</div><div class="qc">
+      <div class="qt">관찰 기록 <small>측정기 탭의 [▶ 얼음물 컵 놓기], [💧 이슬 맺힘] 표시 시각의 값을 적어요</small></div>
+      <table class="t">
+        <tr><th></th><th>시각</th><th>온도(℃)</th><th>습도(%)</th></tr>
+        <tr><th style="width:26%">컵을 놓기 전 (교실 공기)</th><td data-f="s7_at"></td><td data-f="s7_a_t"></td><td data-f="s7_a_h"></td></tr>
+        <tr><th>이슬이 맺힌 순간</th><td data-f="s7_dt"></td><td data-f="s7_d_t"></td><td data-f="s7_d_h"></td></tr>
+      </table>
+    </div></div>
+
+    <div class="q"><div class="qn">3</div><div class="qc">
+      <div class="qt">포화 수증기량 표 <small>공기 1 kg이 최대로 품을 수 있는 수증기의 양(g/kg)</small></div>
+      <table class="t tmini" id="tbl7"></table>
+    </div></div>
+
+    <div class="q"><div class="qn">4</div><div class="qc">
+      <div class="qt">교실 공기의 이슬점 구하기</div>
+      <div style="line-height:2.4">
+        ① 교실 온도 <span class="blank s"></span>℃의 포화 수증기량 = <span class="blank s"></span> g/kg <span class="hint">(표에서 가장 가까운 온도를 찾아요)</span><br>
+        ② 실제 수증기량 = 포화 수증기량 × 습도 ÷ 100 = <span class="blank s"></span> × <span class="blank s"></span> ÷ 100 = <span class="blank s"></span> g/kg<br>
+        ③ 표에서 포화 수증기량이 ②와 비슷한 온도를 찾으면 → 이슬점 약 <span class="blank s"></span>℃
+      </div>
+    </div></div>
+
+    <div class="q grow"><div class="qn">5</div><div class="qc">
+      <div class="qt">설명하기</div>
+      <div style="line-height:2.2">공기가 차가운 컵 표면에 닿아 <span class="blank"><span class="ans">이슬점</span></span> 아래로 냉각되면, 공기 속 <span class="blank"><span class="ans">수증기</span></span>가 물방울로 변한다. 이 현상을 <span class="blank"><span class="ans">응결</span></span>이라고 한다.</div>
+      <div style="margin-top:1mm">이슬이 맺힌 순간 센서가 측정한 온도는 ③에서 구한 이슬점보다 높았나요, 낮았나요? 그 까닭은?</div>
+      <div class="lines fill"></div>
+    </div></div>
+  </div>
+  <div class="foot"><div class="self"><b>스스로 평가</b> 표에서 값을 찾았어요 <span class="stars">☆☆☆</span> 응결을 설명했어요 <span class="stars">☆☆☆</span></div><span>온습도 측정기 학습지 7</span></div>
+</section>
+
+<!-- ================= 교사용 답안 ================= -->
+<section class="sheet key" id="sKey" data-name="교사용 예시 답안">
+  <div class="head">
+    <div><div class="tags"><span class="tag key">교사용</span><span class="tag">학습지 1~7</span></div>
+      <h2>예시 답안과 지도 포인트</h2></div>
+  </div>
+  <div class="goal"><b>📌 안내</b>측정값은 교실 환경과 센서에 따라 달라요. 아래 숫자는 교실 24℃, 습도 50% 기준 예시예요.</div>
+  <div class="body" style="gap:2.2mm">
+    <div class="kb"><h3>1. 입김 속에는 무엇이 있을까?</h3>
+      <p>관찰: 습도 약 50% → 90% 이상(급상승), 온도는 0.5~1.5℃ 정도 소폭 상승. 빈칸: <b>습도, 온도, 수증기, 높다</b>.</p>
+      <p>4-(1) 센서 주변의 수증기가 넓은 공기 속으로 퍼져(확산) 수증기 농도가 낮아지기 때문. 4-(2) 날숨의 수증기가 찬 공기를 만나 이슬점 아래로 냉각되어 작은 물방울로 응결하기 때문(학습지 7과 연결).</p></div>
+    <div class="kb"><h3>2. 습도 그래프 직접 그리기</h3>
+      <p>예) 0초 50% → 10초 93%: 평균 변화율 (93−50)÷(10−0) = <b>4.3 %p/초</b>. 가장 가파른 구간(입김 직후 2~4초)의 변화율이 평균보다 큼 — 처음엔 빠르게 오르다 최고점에 가까울수록 완만해지기 때문.</p>
+      <p>지도 포인트: 세로축을 0~100%로 잡으면 변화가 납작해 보이고, 40~100%로 잡으면 잘 보임 → <b>눈금 선택이 그래프 인상을 바꾼다</b>는 점을 토의.</p></div>
+    <div class="kb"><h3>3. 그래프를 보고 실험 맞히기</h3>
+      <p>A-㉠ 입김(습도 급상승·급하강, 온도 소폭 상승) / B-㉡ 손(온도가 서서히 오르다 손을 떼면 서서히 내려감, 습도 소폭 상승) / C-㉢ 얼음물(온도가 내려가 유지, 공기가 차가워져 상대 습도 상승). ㉣ 드라이어는 <b>온도 급상승, 습도 하락</b>(공기가 데워지면 상대 습도가 낮아짐).</p>
+      <p>3번 예상 그래프: 0~60초 온도 상승(완만해짐)·습도 소폭 상승 → 60~70초 습도 급상승, 온도 유지 또는 소폭 상승 → 이후 둘 다 서서히 감소.</p></div>
+    <div class="kb"><h3>4. 손의 열은 어디로 갈까?</h3>
+      <p>화살표: 감싸는 동안 손 → 센서, 손 → 공기, 센서 → 공기 / 손 뗀 뒤 센서 → 교실 공기. 빈칸: <b>높은, 낮은, 열평형, 완만, 줄어</b>.</p>
+      <p>가설 예: 손바닥 피부 온도는 심부 체온보다 낮다(약 32~34℃) / 손가락 사이로 공기와 열을 주고받는다 / 감싼 시간이 짧았다. 실험 설계 예: 조작-감싼 시간(30초·1분·2분), 통제-같은 사람·같은 손·같은 자세, 측정-최고 온도.</p></div>
+    <div class="kb"><h3>5. 내 몸의 온도 조절 장치</h3>
+      <p>습도 상승 까닭: 피부에서 땀·수증기가 증발함. 안전 수칙: 고온다습(28℃↑·70%↑)일 때 땀이 증발하지 않아 체온이 잘 내려가지 않음 → 운동 강도 낮추고 15~20분마다 물 마시기.</p>
+      <p>식히는 방법: 그늘·실내로 이동(햇빛의 열 차단), 바람 쐬기(대류와 땀 증발 촉진), 젖은 수건(물이 증발하며 열을 빼앗음), 시원한 물 마시기.</p></div>
+    <div class="kb"><h3>6. 데이터로 말하기</h3>
+      <p>예) 주장: 날숨에는 수증기가 들어 있다. 근거: 입김을 불자 10초 만에 습도가 50.2%에서 93.0%로 42.8%p 올랐고, 같은 시간 온도 변화는 0.5℃뿐이었다. 추론: 온도가 거의 그대로인데 습도가 크게 오른 것은 센서 주변 공기에 수증기가 더해졌기 때문이며, 그 수증기는 날숨에서 나왔다.</p></div>
+    <div class="kb" style="border:none"><h3>7. 컵에 맺힌 물방울의 정체</h3>
+      <p>예) 교실 24℃ → 포화 수증기량 18.9 g/kg, 습도 50% → 실제 수증기량 18.9×50÷100 ≈ 9.4 g/kg → 표에서 12℃(8.7)와 14℃(10.0) 사이 → <b>이슬점 약 13℃</b>. 빈칸: <b>이슬점, 수증기, 응결</b>.</p>
+      <p>센서 온도는 이슬점보다 <b>높게</b> 나오는 것이 보통: 센서는 컵 주변 공기를 재지만, 물방울이 맺히는 컵 표면은 얼음물 때문에 훨씬 차갑기 때문. 센서 위치에 따라 결과가 달라지는 점을 오차 토의로 연결.</p></div>
+  </div>
+  <div class="foot"><span>포화 수증기량은 1기압 기준 계산값이며, 교과서마다 소수점 값이 조금 다를 수 있어요.</span><span>교사용</span></div>
+</section>
+
+</div>
+
+
+</div>
+
+<script>
+// ===== 상태 =====
+let port = null, reader = null, readableClosed = null, keepReading = false;
+let demoTimer = null, paused = false;
+const data = [];     // {time: Date, t, h, di}
+const markers = [];  // {id, idx, time, type, label}
+let markerSeq = 0;
+
+const MARK = {
+  breath_start:{label:'입김 시작', c:'#7048e8'}, breath_end:{label:'입김 끝', c:'#7048e8'},
+  hand_start:{label:'손 감싸기', c:'#d6336c'},  hand_end:{label:'손 떼기', c:'#d6336c'},
+  ice_start:{label:'얼음물 놓기', c:'#0c8599'}, dew:{label:'이슬 맺힘', c:'#0c8599'}, ice_end:{label:'컵 치우기', c:'#0c8599'},
+  custom:{label:'', c:'#495057'}
+};
+
+const $ = id => document.getElementById(id);
+const fmt = (v, d = 1) => (v == null || isNaN(v)) ? '-' : v.toFixed(d);
+const sgn = (v, d = 1) => (v >= 0 ? '+' : '') + v.toFixed(d);
+const timeStr = d => d.toLocaleTimeString('ko-KR', {hour12:false});
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ===== 계산 =====
+function discomfort(t, h){ return 0.81*t + 0.01*h*(0.99*t - 14.3) + 46.3; }
+function diLevel(di){
+  if (di >= 80) return ['bad','매우 높음','대부분의 사람이 불쾌감을 느껴요. 환기나 냉방이 필요해요.'];
+  if (di >= 75) return ['warn','높음','절반 정도의 사람이 불쾌감을 느껴요.'];
+  if (di >= 68) return ['warn','보통','불쾌감을 느끼기 시작하는 사람이 있어요.'];
+  return ['ok','낮음','대부분 쾌적하게 느껴요.'];
+}
+function tLevel(t){ return t < 18 ? ['bad','추움'] : t > 28 ? ['bad','더움'] : ['ok','적정']; }
+function hLevel(h){ return h < 30 ? ['bad','건조'] : h > 80 ? ['bad','습함'] : ['ok','적정']; }
+function setBadge(el, [cls, text]){ el.className = 'badge ' + cls; el.textContent = text; }
+
+// ===== 상태 표시 =====
+function setStatus(mode, text){
+  $('dot').className = 'dot' + (mode === 'on' ? ' on' : mode === 'demo' ? ' demo' : '');
+  $('statusText').textContent = text;
+  const busy = mode !== 'off';
+  $('btnConnect').disabled = busy;
+  $('btnDemo').textContent = mode === 'demo' ? '■ 연습 끝내기' : '🧪 연습 모드';
+  $('btnDemo').disabled = mode === 'on';
+  $('btnDisconnect').disabled = mode !== 'on';
+  $('btnPause').disabled = !busy;
+}
+function notice(msg){
+  const n = $('notice');
+  if (!msg){ n.classList.remove('show'); return; }
+  n.textContent = msg; n.classList.add('show');
+}
+
+// ===== 데이터 처리 =====
+function addReading(t, h){
+  if (paused) return;
+  data.push({time: new Date(), t, h, di: discomfort(t, h)});
+  notice('');
+  render();
+}
+
+function handleLine(line){
+  line = line.trim();
+  if (!line) return;
+  if (line === 'READY'){ notice(''); return; }
+  if (line === 'ERR'){
+    notice('⚠️ 센서 값을 읽지 못했어요. DHT11의 DATA 선이 D11에 잘 꽂혀 있는지, 전원(5V·GND)이 맞는지 확인해 주세요.');
+    return;
+  }
+  const m = line.match(/T:\s*(-?[\d.]+)\s*,\s*H:\s*(-?[\d.]+)/i);
+  if (m) addReading(parseFloat(m[1]), parseFloat(m[2]));
+}
+
+// ===== 실험 표시 =====
+function addMarker(type, customLabel){
+  if (!data.length){ alert('먼저 [보드 연결] 또는 [연습 모드]로 측정을 시작해 주세요.'); return; }
+  const label = type === 'custom' ? customLabel : MARK[type].label;
+  markers.push({id: ++markerSeq, idx: data.length - 1, time: new Date(), type, label});
+  render();
+}
+function removeMarker(id){
+  const i = markers.findIndex(m => m.id === id);
+  if (i >= 0){ markers.splice(i, 1); render(); }
+}
+function renderMarkers(){
+  $('mList').innerHTML = markers.length
+    ? markers.map(m => `<span class="chip" style="--c:${MARK[m.type].c}"><b>${esc(m.label)}</b><time>${timeStr(m.time)}</time><button title="지우기" data-del="${m.id}">×</button></span>`).join('')
+    : '<span class="state">아직 표시가 없어요. 실험을 시작할 때 ▶ 버튼을 눌러 주세요.</span>';
+}
+
+// ===== 렌더링 =====
+function render(){
+  renderMarkers();
+  const last = data[data.length - 1];
+  if (!last){
+    ['tVal','hVal'].forEach(id => $(id).textContent = '--.-');
+    $('diVal').textContent = '--';
+    ['tMin','tMax','tAvg','hMin','hMax','hAvg'].forEach(id => $(id).textContent = '-');
+    ['tBadge','hBadge','diBadge'].forEach(id => setBadge($(id), ['', '대기 중']));
+    $('tCard').classList.remove('alert'); $('hCard').classList.remove('alert');
+    $('diDesc').textContent = '온도와 습도로 계산한, 사람이 느끼는 덥고 습한 정도예요.';
+    $('count').textContent = 0;
+    $('log').innerHTML = '<tr><td colspan="4" class="empty">아직 측정값이 없어요</td></tr>';
+    drawChart(); renderAnalysis(); return;
+  }
+  $('tVal').textContent = fmt(last.t);
+  $('hVal').textContent = fmt(last.h);
+  $('diVal').textContent = fmt(last.di, 0);
+
+  const ts = data.map(d => d.t), hs = data.map(d => d.h);
+  const avg = a => a.reduce((s, v) => s + v, 0) / a.length;
+  $('tMin').textContent = fmt(Math.min(...ts)) + '℃'; $('tMax').textContent = fmt(Math.max(...ts)) + '℃'; $('tAvg').textContent = fmt(avg(ts)) + '℃';
+  $('hMin').textContent = fmt(Math.min(...hs)) + '%';  $('hMax').textContent = fmt(Math.max(...hs)) + '%';  $('hAvg').textContent = fmt(avg(hs)) + '%';
+
+  const tl = tLevel(last.t), hl = hLevel(last.h), dl = diLevel(last.di);
+  setBadge($('tBadge'), tl); setBadge($('hBadge'), hl); setBadge($('diBadge'), [dl[0], dl[1]]);
+  $('diDesc').textContent = dl[2];
+  $('tCard').classList.toggle('alert', tl[0] === 'bad');
+  $('hCard').classList.toggle('alert', hl[0] === 'bad');
+
+  $('count').textContent = data.length;
+  const start = Math.max(0, data.length - 12);
+  const rows = [];
+  for (let i = data.length - 1; i >= start; i--){
+    const d = data[i];
+    const tags = markers.filter(m => m.idx === i).map(m => `<span class="mcol" style="--c:${MARK[m.type].c}"></span>${esc(m.label)}`).join(' ');
+    rows.push(`<tr><td>${timeStr(d.time)}</td><td>${fmt(d.t)}℃</td><td>${fmt(d.h)}%</td><td>${tags}</td></tr>`);
+  }
+  $('log').innerHTML = rows.join('');
+  drawChart();
+  renderAnalysis();
+}
+
+// ===== 그래프 공통 =====
+function setupCanvas(c){
+  const dpr = window.devicePixelRatio || 1;
+  const W = c.clientWidth, H = c.clientHeight;
+  c.width = W * dpr; c.height = H * dpr;
+  const ctx = c.getContext('2d'); ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+  return {ctx, W, H};
+}
+function drawMarkerLines(ctx, list, xOf, top, bottom, atBottom, W){
+  ctx.font = 'bold 11px system-ui, sans-serif';
+  list.forEach((m, k) => {
+    const xx = xOf(m.idx); if (xx == null) return;
+    const c = MARK[m.type].c;
+    ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(xx, top); ctx.lineTo(xx, bottom); ctx.stroke(); ctx.setLineDash([]);
+    const tw = ctx.measureText(m.label).width + 10;
+    const ly = atBottom ? bottom - 19 - (k % 2) * 20 : top + (k % 3) * 20;
+    const lx = (W && xx + 3 + tw > W) ? xx - 3 - tw : xx + 3;   // 오른쪽 끝이면 선 왼쪽에 표시
+    ctx.fillStyle = c; ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(lx, ly, tw, 17, 4); else ctx.rect(lx, ly, tw, 17);
+    ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText(m.label, lx + 5, ly + 12.5);
+  });
+}
+
+// ===== 메인 그래프 =====
+function drawChart(){
+  const {ctx, W, H} = setupCanvas($('chart'));
+  const pad = {l:44, r:44, t:12, b:28};
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const n = parseInt($('range').value, 10);
+  const pts = n ? data.slice(-n) : data;
+  const offset = data.length - pts.length;
+
+  let tMin = 15, tMax = 30;
+  if (pts.length){
+    const ts = pts.map(d => d.t);
+    tMin = Math.floor(Math.min(...ts) - 1); tMax = Math.ceil(Math.max(...ts) + 1);
+    if (tMax - tMin < 6){ const mid = (tMax + tMin) / 2; tMin = Math.floor(mid - 3); tMax = Math.ceil(mid + 3); }
+  }
+  const yT = v => pad.t + ph - (v - tMin) / (tMax - tMin) * ph;
+  const yH = v => pad.t + ph - v / 100 * ph;
+
+  ctx.font = '12px system-ui, sans-serif'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 5; i++){
+    const y = pad.t + ph * i / 5;
+    ctx.strokeStyle = '#e9ecef'; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.fillStyle = '#e8590c'; ctx.textAlign = 'right';
+    ctx.fillText((tMax - (tMax - tMin) * i / 5).toFixed(1), pad.l - 6, y + 4);
+    ctx.fillStyle = '#1c7ed6'; ctx.textAlign = 'left';
+    ctx.fillText(String(100 - 20 * i), W - pad.r + 6, y + 4);
+  }
+
+  if (!pts.length){
+    ctx.fillStyle = '#868e96'; ctx.textAlign = 'center'; ctx.font = '14px system-ui, sans-serif';
+    ctx.fillText('보드를 연결하면 여기에 그래프가 그려져요', W / 2, H / 2);
+    return;
+  }
+  const x = i => pad.l + (pts.length === 1 ? pw / 2 : pw * i / (pts.length - 1));
+
+  ctx.fillStyle = '#868e96'; ctx.textAlign = 'center';
+  const ticks = Math.min(5, pts.length);
+  for (let k = 0; k < ticks; k++){
+    const i = ticks === 1 ? 0 : Math.round((pts.length - 1) * k / (ticks - 1));
+    ctx.fillText(timeStr(pts[i].time), x(i), H - 8);
+  }
+
+  drawMarkerLines(ctx, markers, idx => (idx < offset || idx > data.length - 1) ? null : x(idx - offset), pad.t, pad.t + ph, false, W);
+
+  const line = (key, yf, color) => {
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.beginPath();
+    pts.forEach((d, i) => i ? ctx.lineTo(x(i), yf(d[key])) : ctx.moveTo(x(i), yf(d[key])));
+    ctx.stroke();
+    const li = pts.length - 1;
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x(li), yf(pts[li][key]), 4, 0, Math.PI * 2); ctx.fill();
+  };
+  line('h', yH, '#1c7ed6');
+  line('t', yT, '#e8590c');
+}
+
+// ===== 실험 구간 분석 =====
+// kind: 'breath' (습도 key 'h') 또는 'hand' (온도 key 't')
+function analyze(kind, key){
+  const other = key === 't' ? 'h' : 't';
+  let s = null;
+  for (let i = markers.length - 1; i >= 0; i--) if (markers[i].type === kind + '_start'){ s = markers[i]; break; }
+  if (!s) return null;
+  const end = markers.find(m => m.type === kind + '_end' && m.idx >= s.idx && m.id > s.id) || null;
+  const nextStart = markers.filter(m => m.type.endsWith('_start') && m.id > s.id && m.idx > s.idx).sort((a, b) => a.idx - b.idx)[0];
+  const limit = nextStart ? nextStart.idx : data.length - 1;
+  const t0 = data[s.idx].time;
+  const sec = i => (data[i].time - t0) / 1000;
+
+  const bFrom = Math.max(0, s.idx - 2);
+  let base = 0, baseO = 0;
+  for (let i = bFrom; i <= s.idx; i++){ base += data[i][key]; baseO += data[i][other]; }
+  base /= (s.idx - bFrom + 1); baseO /= (s.idx - bFrom + 1);
+
+  const r = {s, end, limit, base, baseO, from: Math.max(0, s.idx - 5), key, other};
+  if (limit <= s.idx){ r.waiting = true; return r; }
+
+  // 최고점: 시작 이후 ~ (끝 표시 + 약 20초) 범위에서 찾기 (센서 반응 지연 고려)
+  let pEnd = limit;
+  if (end){ const lagEnd = data.findIndex((d, i) => i > end.idx && (d.time - data[end.idx].time) > 20000); if (lagEnd > 0) pEnd = Math.min(limit, lagEnd); }
+  let p = s.idx + 1;
+  for (let i = s.idx + 1; i <= pEnd; i++) if (data[i][key] > data[p][key]) p = i;
+  r.p = p; r.peak = data[p][key]; r.delta = r.peak - base; r.tPeak = sec(p);
+  r.otherAtPeak = data[p][other];
+  let oMax = s.idx + 1;
+  for (let i = s.idx + 1; i <= pEnd; i++) if (Math.abs(data[i][other] - baseO) > Math.abs(data[oMax][other] - baseO)) oMax = i;
+  r.otherDelta = data[oMax][other] - baseO; r.otherVal = data[oMax][other];
+  r.avgRate = r.tPeak > 0 ? r.delta / r.tPeak : 0;
+
+  // 가장 빠르게 증가한 구간
+  let best = null;
+  for (let i = s.idx + 1; i <= p; i++){
+    const dt = (data[i].time - data[i - 1].time) / 1000; if (dt <= 0) continue;
+    const rate = (data[i][key] - data[i - 1][key]) / dt;
+    if (!best || rate > best.rate) best = {rate, a: i - 1, b: i};
+  }
+  r.best = best;
+
+  // 회복: 끝 표시(없으면 최고점) 이후 변화량의 절반 이하로 돌아온 시점
+  const ref = end ? Math.max(end.idx, s.idx) : p;
+  r.ref = ref;
+  const half = base + r.delta / 2;
+  r.rec = null;
+  for (let i = Math.max(p, ref) + 1; i <= limit; i++){
+    if (data[i][key] <= half){ r.rec = {i, sec: (data[i].time - data[ref].time) / 1000}; break; }
+  }
+  r.now = data[limit][key];
+  r.small = r.delta < (key === 'h' ? 2 : 0.5);
+  return r;
+}
+
+function drawSegment(canvasId, r, key, color, unit, emptyMsg){
+  const {ctx, W, H} = setupCanvas($(canvasId));
+  const pad = {l:44, r:14, t:10, b:26};
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  if (!r || r.waiting){
+    ctx.fillStyle = '#868e96'; ctx.textAlign = 'center'; ctx.font = '13px system-ui, sans-serif';
+    ctx.fillText(r ? '측정값이 들어오는 중이에요…' : emptyMsg, W / 2, H / 2);
+    return;
+  }
+  const from = r.from, to = r.limit, cnt = to - from;
+  const vals = data.slice(from, to + 1).map(d => d[key]);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const minSpan = key === 'h' ? 10 : 3;
+  if (hi - lo < minSpan){ const mid = (hi + lo) / 2; lo = mid - minSpan / 2; hi = mid + minSpan / 2; }
+  lo -= (hi - lo) * 0.08; hi += (hi - lo) * 0.12;
+  const x = i => pad.l + (cnt === 0 ? pw / 2 : pw * (i - from) / cnt);
+  const y = v => pad.t + ph - (v - lo) / (hi - lo) * ph;
+
+  ctx.font = '11px system-ui, sans-serif';
+  for (let k = 0; k <= 4; k++){
+    const v = lo + (hi - lo) * k / 4, yy = y(v);
+    ctx.strokeStyle = '#eef0f3'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(W - pad.r, yy); ctx.stroke();
+    ctx.fillStyle = '#868e96'; ctx.textAlign = 'right'; ctx.fillText(v.toFixed(1), pad.l - 5, yy + 4);
+  }
+  ctx.textAlign = 'center';
+  const t0 = data[r.s.idx].time;
+  [from, Math.round((from + to) / 2), to].forEach(i => {
+    const s = Math.round((data[i].time - t0) / 1000);
+    ctx.fillText((s > 0 ? '+' : '') + s + '초', x(i), H - 8);
+  });
+
+  // 기준선
+  ctx.strokeStyle = '#adb5bd'; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(pad.l, y(r.base)); ctx.lineTo(W - pad.r, y(r.base)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = '#868e96'; ctx.textAlign = 'right'; ctx.fillText('기준 ' + r.base.toFixed(1) + unit, W - pad.r, y(r.base) - 4);
+
+  drawMarkerLines(ctx, markers.filter(m => m.idx >= from && m.idx <= to), idx => x(idx), pad.t, pad.t + ph, true, W);
+
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.beginPath();
+  for (let i = from; i <= to; i++) i === from ? ctx.moveTo(x(i), y(data[i][key])) : ctx.lineTo(x(i), y(data[i][key]));
+  ctx.stroke();
+
+  // 최고점
+  ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x(r.p), y(r.peak), 5, 0, Math.PI * 2); ctx.fill();
+  ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = x(r.p) > W - 90 ? 'right' : 'left';
+  ctx.fillText('최고 ' + r.peak.toFixed(1) + unit, x(r.p) + (ctx.textAlign === 'left' ? 8 : -8), Math.max(pad.t + 12, y(r.peak) - 6));
+}
+
+function kvRows(rows){ return rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join(''); }
+function setAuto(ids, vals){ ids.forEach((id, i) => $(id).textContent = vals[i]); }
+
+function renderAnalysis(){
+  // ① 입김 → 습도
+  const b = analyze('breath', 'h');
+  drawSegment('segBreath', b, 'h', '#1c7ed6', '%', '[▶ 입김 시작]을 누르고 실험해 보세요');
+  const bIds = ['b1','b2','b3','b4','b5','b6'];
+  if (!b || b.waiting){
+    $('sumBreath').innerHTML = kvRows([['상태', b ? '측정 중…' : '아직 실험 표시가 없어요']]);
+    setAuto(bIds, bIds.map(() => '-'));
+  } else {
+    const rec = b.rec ? `약 ${Math.round(b.rec.sec)}초` : `회복 중… (지금 ${fmt(b.now)}%)`;
+    const best = b.best ? `${timeStr(data[b.best.a].time)}~${timeStr(data[b.best.b].time)}, 초당 ${sgn(b.best.rate, 2)}%p` : '-';
+    $('sumBreath').innerHTML = kvRows([
+      ['시작 전 습도 (기준값)', fmt(b.base) + '%'],
+      ['최고 습도', fmt(b.peak) + '%'],
+      ['변화량', sgn(b.delta) + '%p'],
+      ['최고점까지 걸린 시간', Math.round(b.tPeak) + '초'],
+      ['평균 변화율', '초당 ' + sgn(b.avgRate, 2) + '%p'],
+      ['함께 변한 온도', `${fmt(b.baseO)}℃ → ${fmt(b.otherVal)}℃ (${sgn(b.otherDelta)}℃)`],
+      [(b.end ? '끝 표시' : '최고점') + ' 후 절반 회복', rec]
+    ]) + (b.small ? kvRows([['⚠️ 참고', '변화가 작아요. 센서에 더 가까이 입김을 불어 보세요.']]) : '');
+    setAuto(bIds, [
+      `${fmt(b.base)}% → ${fmt(b.peak)}% (${sgn(b.delta)}%p)`,
+      `${fmt(b.baseO)}℃ → ${fmt(b.otherVal)}℃ (${sgn(b.otherDelta)}℃)`,
+      `${b.end ? '입김을 멈춘 뒤' : '최고점 이후'} 절반 회복까지 ${rec}`,
+      `증가 ${Math.round(b.tPeak)}초 → 최고 ${fmt(b.peak)}% → 감소(절반 회복) ${b.rec ? Math.round(b.rec.sec) + '초' : '진행 중'}`,
+      best,
+      `${fmt(b.delta)} ÷ ${Math.round(b.tPeak)}초 = 초당 ${fmt(b.avgRate, 2)}%p`
+    ]);
+  }
+
+  // ② 손 감싸기 → 온도
+  const h = analyze('hand', 't');
+  drawSegment('segHand', h, 't', '#e8590c', '℃', '[▶ 손 감싸기]를 누르고 실험해 보세요');
+  const hIds = ['h1','h2','h3','h4','h5'];
+  if (!h || h.waiting){
+    $('sumHand').innerHTML = kvRows([['상태', h ? '측정 중…' : '아직 실험 표시가 없어요']]);
+    setAuto(hIds, hIds.map(() => '-'));
+  } else {
+    const rec = h.rec ? `약 ${Math.round(h.rec.sec)}초` : `식는 중… (지금 ${fmt(h.now)}℃)`;
+    const coolRate = h.rec && h.rec.sec > 0 ? `초당 ${fmt((h.peak - data[h.rec.i].t) / h.rec.sec, 2)}℃씩 하강` : '측정 중';
+    $('sumHand').innerHTML = kvRows([
+      ['시작 전 온도 (기준값)', fmt(h.base) + '℃'],
+      ['최고 온도', fmt(h.peak) + '℃'],
+      ['변화량', sgn(h.delta) + '℃'],
+      ['최고점까지 걸린 시간', Math.round(h.tPeak) + '초'],
+      ['평균 변화율', '초당 ' + sgn(h.avgRate, 2) + '℃'],
+      ['체온(36.5℃)과의 차이', fmt(36.5 - h.peak) + '℃'],
+      ['함께 변한 습도', `${fmt(h.baseO)}% → ${fmt(h.otherVal)}% (${sgn(h.otherDelta)}%p)`],
+      [(h.end ? '손 뗀' : '최고점') + ' 후 절반 회복', rec]
+    ]) + (h.small ? kvRows([['⚠️ 참고', '변화가 작아요. 손 전체로 센서를 더 오래 감싸 보세요.']]) : '');
+    setAuto(hIds, [
+      `${fmt(h.base)}℃ → ${fmt(h.peak)}℃ (${sgn(h.delta)}℃)`,
+      `최고 ${fmt(h.peak)}℃, 체온보다 ${fmt(36.5 - h.peak)}℃ 낮음`,
+      `${h.end ? '손을 뗀 뒤' : '최고점 이후'} 절반 회복까지 ${rec}`,
+      `${fmt(h.baseO)}% → ${fmt(h.otherVal)}% (${sgn(h.otherDelta)}%p)`,
+      `오를 때 ${Math.round(h.tPeak)}초 / 식을 때(절반) ${h.rec ? Math.round(h.rec.sec) + '초' : '진행 중'}, ${coolRate}`
+    ]);
+  }
+}
+
+// ===== 시리얼 연결 (Web Serial API) =====
+async function connect(){
+  if (!('serial' in navigator)){
+    alert('이 브라우저는 보드 연결(Web Serial)을 지원하지 않아요.\n크롬 또는 엣지 브라우저로 이 파일을 열어 주세요.');
+    return;
+  }
+  try{
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 });
+  }catch(e){
+    port = null;
+    if (e.name !== 'NotFoundError'){
+      notice('⚠️ 연결하지 못했어요. 아두이노 IDE의 시리얼 모니터가 열려 있으면 닫고 다시 시도해 주세요. (' + e.message + ')');
+    }
+    return;
+  }
+  stopDemo();
+  setStatus('on', '오렌지보드 연결됨 · 2초마다 측정 중');
+  notice('');
+  keepReading = true;
+  readLoop();
+}
+
+async function readLoop(){
+  const decoder = new TextDecoderStream();
+  readableClosed = port.readable.pipeTo(decoder.writable).catch(() => {});
+  reader = decoder.readable.getReader();
+  let buf = '';
+  try{
+    while (keepReading){
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += value;
+      const lines = buf.split(/\r?\n/);
+      buf = lines.pop();
+      lines.forEach(handleLine);
+    }
+  }catch(e){
+    if (keepReading) notice('⚠️ 보드와의 연결이 끊어졌어요. USB 케이블을 확인하고 다시 연결해 주세요.');
+  }finally{
+    try{ reader.releaseLock(); }catch(_){}
+  }
+  if (keepReading){ keepReading = false; await closePort(); setStatus('off', '연결 끊김'); }
+}
+
+async function closePort(){
+  try{ if (reader) await reader.cancel(); }catch(_){}
+  try{ if (readableClosed) await readableClosed; }catch(_){}
+  try{ if (port) await port.close(); }catch(_){}
+  port = null; reader = null; readableClosed = null;
+}
+
+async function disconnect(){
+  keepReading = false;
+  await closePort();
+  setStatus('off', '연결 안 됨 · [보드 연결]을 눌러 주세요');
+}
+
+if ('serial' in navigator){
+  navigator.serial.addEventListener('disconnect', e => {
+    if (port && e.target === port){
+      keepReading = false;
+      notice('⚠️ USB 케이블이 빠졌어요. 다시 꽂은 뒤 [보드 연결]을 눌러 주세요.');
+      closePort().then(() => setStatus('off', '연결 끊김'));
+    }
+  });
+}
+
+// ===== 연습 모드 (실험 표시 버튼에 반응) =====
+let baseT = 24, baseH = 50, demoT = 24, demoH = 50;
+function active(kind){
+  for (let i = markers.length - 1; i >= 0; i--){
+    if (markers[i].type === kind + '_start') return true;
+    if (markers[i].type === kind + '_end') return false;
+  }
+  return false;
+}
+function demoTick(){
+  baseT = Math.min(29, Math.max(20, baseT + (Math.random() - 0.5) * 0.08));
+  baseH = Math.min(65, Math.max(35, baseH + (Math.random() - 0.5) * 0.4));
+  let tt = baseT, th = baseH;
+  if (active('breath')){ th = 94; tt += 1.5; }
+  if (active('hand')){ tt += 5.5; th += 6; }
+  if (active('ice')){ tt -= 3; th += 5; }
+  th = Math.min(99, th);
+  demoT += (tt - demoT) * 0.25 + (Math.random() - 0.5) * 0.1;
+  demoH += (th - demoH) * 0.4 + (Math.random() - 0.5) * 0.5;
+  handleLine(`T:${demoT.toFixed(1)},H:${demoH.toFixed(1)}`);
+}
+function startDemo(){
+  setStatus('demo', '연습 모드 · 실험 버튼을 누르면 가짜 데이터가 반응해요');
+  demoTimer = setInterval(demoTick, 2000);
+  demoTick();
+}
+function stopDemo(){
+  if (demoTimer){ clearInterval(demoTimer); demoTimer = null; setStatus('off', '연결 안 됨 · [보드 연결]을 눌러 주세요'); }
+}
+
+// ===== CSV 저장 =====
+function saveCsv(){
+  if (!data.length){ alert('저장할 측정값이 없어요.'); return; }
+  const rows = [['날짜','시각','경과(초)','온도(℃)','습도(%)','불쾌지수','실험 표시']];
+  const t0 = data[0].time;
+  data.forEach((d, i) => rows.push([
+    d.time.toLocaleDateString('ko-KR'), timeStr(d.time), Math.round((d.time - t0) / 1000),
+    d.t.toFixed(1), d.h.toFixed(1), d.di.toFixed(1),
+    markers.filter(m => m.idx === i).map(m => m.label).join(' / ')
+  ]));
+  const csv = '\uFEFF' + rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  const now = new Date();
+  const stamp = now.toISOString().slice(0,10) + '_' + timeStr(now).replace(/:/g,'');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  a.download = `온습도기록_${stamp}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ===== 버튼 =====
+$('btnConnect').onclick = connect;
+$('btnDisconnect').onclick = disconnect;
+$('btnDemo').onclick = () => demoTimer ? stopDemo() : startDemo();
+$('btnPause').onclick = () => {
+  paused = !paused;
+  $('btnPause').textContent = paused ? '▶ 다시 측정' : '⏸ 일시정지';
+  notice(paused ? '⏸ 일시정지 중이에요. 새 측정값을 기록하지 않아요.' : '');
+};
+$('btnReset').onclick = () => {
+  if (data.length && !confirm('지금까지의 측정 기록과 실험 표시를 모두 지울까요?')) return;
+  data.length = 0; markers.length = 0; render();
+};
+$('btnCsv').onclick = saveCsv;
+$('range').onchange = drawChart;
+
+document.querySelectorAll('.mbtn[data-m]').forEach(b => b.onclick = () => addMarker(b.dataset.m));
+$('mAdd').onclick = () => {
+  const v = $('mText').value.trim();
+  if (!v){ $('mText').focus(); return; }
+  addMarker('custom', v); $('mText').value = '';
+};
+$('mText').addEventListener('keydown', e => { if (e.key === 'Enter') $('mAdd').click(); });
+$('mList').addEventListener('click', e => {
+  const id = e.target.dataset && e.target.dataset.del;
+  if (id) removeMarker(Number(id));
+});
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + t.dataset.p));
+  renderAnalysis();   // 숨겨져 있던 캔버스 크기 다시 계산
+});
+
+$('btnPrint').onclick = () => {
+  const who = $('who').value.trim();
+  document.querySelectorAll('.whoPrint').forEach(s => s.textContent = who ? ' — ' + who : '');
+  document.body.classList.add('print-analysis');
+  document.querySelectorAll('.panel').forEach(p => p.classList.add('active'));
+  renderAnalysis();
+  window.print();
+};
+window.addEventListener('afterprint', () => {
+  document.body.classList.remove('print-analysis');
+  const cur = document.querySelector('.tab.active').dataset.p;
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + cur));
+  renderAnalysis();
+});
+
+window.addEventListener('resize', () => { drawChart(); renderAnalysis(); });
+window.addEventListener('beforeunload', e => { if (data.length){ e.preventDefault(); e.returnValue = ''; } });
+
+// ===== 측정기 / 학습지 화면 전환 =====
+function showView(v){
+  document.querySelectorAll('.appnav button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  $('app').hidden = v !== 'app';
+  $('ws').hidden = v !== 'ws';
+  window.scrollTo(0, 0);
+  if (v === 'app'){ drawChart(); renderAnalysis(); }
+}
+document.querySelectorAll('.appnav button').forEach(b => b.onclick = () => showView(b.dataset.view));
+$('btnToWs').onclick = () => { showView('ws'); window.wsFill(); };
+
+render();
+</script>
+<script>
+// ======================= 학습지 =======================
+(function(){
+
+
+// ===== 모눈 그래프 =====
+function grid(id, o){
+  const {W=180, H=70, L=14, R=4, T=4, B=11, cols=15, rows=10, major=5, xl=[], yl=[], xt='', yt='', yt2=''} = o;
+  const pw = W - L - R, ph = H - T - B;
+  let g = '';
+  for (let i = 0; i <= cols; i++){
+    const x = L + pw * i / cols;
+    g += `<line x1="${x}" y1="${T}" x2="${x}" y2="${T+ph}" stroke="${i % major ? '#e3e7ed' : '#c3cad5'}" stroke-width="${i % major ? .25 : .4}"/>`;
+    if (xl[i] !== undefined) g += `<text x="${x}" y="${T+ph+4.2}" font-size="3" text-anchor="middle" fill="#5f6878">${xl[i]}</text>`;
+  }
+  for (let j = 0; j <= rows; j++){
+    const y = T + ph - ph * j / rows;
+    g += `<line x1="${L}" y1="${y}" x2="${L+pw}" y2="${y}" stroke="${j % major ? '#e3e7ed' : '#c3cad5'}" stroke-width="${j % major ? .25 : .4}"/>`;
+    if (yl[j] !== undefined) g += `<text x="${L-1.5}" y="${y+1}" font-size="3" text-anchor="end" fill="#5f6878">${yl[j]}</text>`;
+  }
+  g += `<line x1="${L}" y1="${T+ph}" x2="${L+pw+2}" y2="${T+ph}" stroke="#1d2433" stroke-width=".6"/>`;
+  g += `<line x1="${L}" y1="${T+ph}" x2="${L}" y2="${T-1}" stroke="#1d2433" stroke-width=".6"/>`;
+  if (xt) g += `<text x="${L+pw}" y="${H-1}" font-size="3.2" text-anchor="end" font-weight="700" fill="#1d2433">${xt}</text>`;
+  if (yt) g += `<text x="1" y="${T+2}" font-size="3.2" font-weight="700" fill="#1d2433">${yt}</text>`;
+  if (yt2) g += `<text x="${W-1}" y="${T+2}" font-size="3.2" text-anchor="end" font-weight="700" fill="#1d2433">${yt2}</text>`;
+  const s = $(id); s.setAttribute('viewBox', `0 0 ${W} ${H}`); s.innerHTML = g;
+}
+
+// 빈 축 (학습지 1 스케치용)
+function sketch(id){
+  const s = $(id); s.setAttribute('viewBox', '0 0 80 34');
+  s.innerHTML = `<line x1="14" y1="28" x2="77" y2="28" stroke="#1d2433" stroke-width=".6"/><line x1="14" y1="28" x2="14" y2="2" stroke="#1d2433" stroke-width=".6"/>
+  <text x="1" y="6" font-size="3.4" font-weight="700">습도</text><text x="77" y="33" font-size="3.4" text-anchor="end" font-weight="700">시간</text>`;
+}
+
+// 미니 그래프 (그래프 읽기)
+function mini(id, t, h, opt = {}){
+  const W = 60, H = 30, L = 5, B = 5, T = 3, R = 3, pw = W - L - R, ph = H - T - B;
+  const path = arr => arr.map((v, i) => `${i ? 'L' : 'M'}${(L + pw * i / (arr.length - 1)).toFixed(2)},${(T + ph - ph * v).toFixed(2)}`).join(' ');
+  let g = `<line x1="${L}" y1="${T+ph}" x2="${W-1}" y2="${T+ph}" stroke="#1d2433" stroke-width=".5"/><line x1="${L}" y1="${T+ph}" x2="${L}" y2="1" stroke="#1d2433" stroke-width=".5"/>
+  <text x="${W-1}" y="${H-.6}" font-size="2.8" text-anchor="end" fill="#5f6878">시간</text>`;
+  if (h) g += `<path d="${path(h)}" fill="none" stroke="#1d2433" stroke-width=".8" stroke-dasharray="2 1.3"/>`;
+  if (t) g += `<path d="${path(t)}" fill="none" stroke="#1d2433" stroke-width="1.1"/>`;
+  const s = $(id); s.setAttribute('viewBox', `0 0 ${W} ${H}`); s.innerHTML = g;
+}
+const curve = (n, f) => Array.from({length:n}, (_, i) => f(i / (n - 1)));
+
+// 열 이동 그림
+function heat(id, handTxt){
+  const box = (x, y, w, label, val) => `<rect x="${x}" y="${y}" width="${w}" height="13" rx="2.5" fill="#fff" stroke="#1d2433" stroke-width=".5"/>
+    <text x="${x+w/2}" y="${y+5.3}" font-size="3.4" font-weight="700" text-anchor="middle">${label}</text>
+    <text x="${x+w/2}" y="${y+10.6}" font-size="3" text-anchor="middle" fill="#5f6878">${val}</text>`;
+  const s = $(id); s.setAttribute('viewBox', '0 0 84 46');
+  s.innerHTML = `<rect x="1" y="1" width="82" height="44" rx="3" fill="#f4f6f9"/>
+    <text x="80" y="6" font-size="3" text-anchor="end" fill="#5f6878">교실 공기 (____℃)</text>
+    ${box(6, 27, 26, '센서', '(____℃)')}
+    ${box(52, 27, 26, '손', handTxt)}`;
+}
+
+// ===== 표 생성 =====
+(function(){
+  let h = '<tr><th style="width:13%">시간(초)</th>';
+  for (let s = 0; s <= 30; s += 2) h += `<th>${s}</th>`;
+  h += '</tr><tr><th>습도(%)</th>' + Array.from({length:16}, (_, k) => `<td style="height:8mm" data-f="s2_${k}"></td>`).join('') + '</tr>';
+  $('tbl2').innerHTML = h;
+
+  // 포화 수증기량 (1기압, g/kg) — Magnus 식으로 계산
+  const sat = T => { const e = 6.112 * Math.exp(17.67 * T / (T + 243.5)); return 622 * e / (1013.25 - e); };
+  let r1 = '<tr><th style="width:15%">온도(℃)</th>', r2 = '<tr><th>포화 수증기량</th>';
+  for (let T = 4; T <= 30; T += 2){ r1 += `<th>${T}</th>`; r2 += `<td>${sat(T).toFixed(1)}</td>`; }
+  $('tbl7').innerHTML = r1 + '</tr>' + r2 + '</tr>';
+
+  sketch('g1');
+  grid('g2', {W:182, H:92, cols:30, rows:12, major:5, xl:Object.fromEntries(Array.from({length:7}, (_, i) => [i*5, i*5])), xt:'시간(초)', yt:'습도(%)', L:16});
+  grid('g3', {W:182, H:50, cols:24, rows:8, major:4, xl:{0:0,4:20,8:40,12:60,16:80,20:100,24:120}, xt:'시간(초)', yt:'온도·습도', L:16});
+
+  mini('mA', curve(30, x => .32 + (x > .25 && x < .5 ? .05 : x >= .5 ? .05 * Math.exp(-(x - .5) * 8) : 0)),
+             curve(30, x => x < .25 ? .48 : x < .45 ? .48 + .44 * (1 - Math.exp(-(x - .25) * 25)) : .48 + .43 * Math.exp(-(x - .45) * 9)));
+  mini('mB', curve(30, x => x < .2 ? .25 : x < .6 ? .25 + .5 * (1 - Math.exp(-(x - .2) * 7)) : .25 + .47 * Math.exp(-(x - .6) * 5)),
+             curve(30, x => x < .2 ? .5 : x < .6 ? .5 + .08 * (1 - Math.exp(-(x - .2) * 8)) : .5 + .08 * Math.exp(-(x - .6) * 6)));
+  mini('mC', curve(30, x => x < .2 ? .7 : .7 - .35 * (1 - Math.exp(-(x - .2) * 5))),
+             curve(30, x => x < .2 ? .45 : .45 + .25 * (1 - Math.exp(-(x - .2) * 4))));
+  mini('mD', curve(40, x => x < .15 ? .3 : x < .4 ? .3 + .45 * (1 - Math.exp(-(x - .15) * 14)) : x < .55 ? .74 : x < .8 ? .74 - .3 * (1 - Math.exp(-(x - .55) * 10)) : .46 + .38 * (1 - Math.exp(-(x - .8) * 18))), null);
+
+  heat('heat1', '(약 ____℃)');
+  heat('heat2', '(떨어져 있음)');
+})();
+
+// ===== 인쇄 선택 =====
+const sheets = [...document.querySelectorAll('#ws .sheet')];
+$('picks').innerHTML = sheets.map(s =>
+  `<label class="${s.id === 'sKey' ? 'key' : ''}"><input type="checkbox" data-s="${s.id}" ${s.id === 'sKey' ? '' : 'checked'}><a href="#${s.id}">${s.dataset.name}</a></label>`
+).join('');
+$('wsPrint').onclick = () => {
+  const on = [...document.querySelectorAll('#picks input')].filter(c => c.checked).map(c => c.dataset.s);
+  if (!on.length){ alert('인쇄할 학습지를 하나 이상 골라 주세요.'); return; }
+  sheets.forEach(s => s.classList.toggle('skip', !on.includes(s.id)));
+  document.body.classList.add('print-ws');
+  window.print();
+};
+window.addEventListener('afterprint', () => { document.body.classList.remove('print-ws'); sheets.forEach(s => s.classList.remove('skip')); });
+
+// 답안 보기 (학습지 속 빈칸 답을 빨간 글씨로)
+$('wsKey').onclick = () => {
+  const on = !$('wsKey').classList.contains('on');
+  $('wsKey').classList.toggle('on', on);
+  $('wsKey').textContent = on ? '🙈 답안 숨기기' : '👀 답안 보기';
+  sheets.forEach(s => s.classList.toggle('show-key', on));
+};
+
+// 문구 수정 모드
+$('wsEdit').onclick = () => {
+  const on = !$('wsEdit').classList.contains('on');
+  $('wsEdit').classList.toggle('on', on);
+  $('wsEdit').textContent = on ? '✅ 수정 끝내기' : '✏️ 문구 수정';
+  sheets.forEach(s => s.contentEditable = on ? 'true' : 'false');
+};
+
+// ===== 측정값 채우기 (측정기 탭의 데이터 → 학습지 기록 칸) =====
+function wsFill(){
+  const f = {}, got = [];
+  const b = analyze('breath', 'h');
+  if (b && !b.waiting){
+    Object.assign(f, {s1_tb:fmt(b.baseO), s1_tp:fmt(b.otherVal), s1_td:sgn(b.otherDelta),
+                      s1_hb:fmt(b.base),  s1_hp:fmt(b.peak),     s1_hd:sgn(b.delta), s1_tt:String(Math.round(b.tPeak))});
+    const t0 = data[b.s.idx].time.getTime();
+    for (let k = 0; k < 16; k++){
+      const target = t0 + k * 2000; let best = -1, bd = 1e9;
+      for (let i = b.s.idx; i <= b.limit; i++){ const d = Math.abs(data[i].time - target); if (d < bd){ bd = d; best = i; } }
+      if (best >= 0 && bd <= 1500) f['s2_' + k] = fmt(data[best].h);
+    }
+    got.push('① 입김');
+  }
+  const h = analyze('hand', 't');
+  if (h && !h.waiting){
+    Object.assign(f, {s4_b:fmt(h.base), s4_p:fmt(h.peak), s4_d:sgn(h.delta), s4_t:String(Math.round(h.tPeak)),
+                      s4_r:h.rec ? String(Math.round(h.rec.sec)) : '', s5_a:fmt(h.baseO), s5_b:fmt(h.otherVal)});
+    got.push('② 손 감싸기');
+  }
+  let ice = null;
+  for (let i = markers.length - 1; i >= 0; i--) if (markers[i].type === 'ice_start'){ ice = markers[i]; break; }
+  if (ice){
+    const d0 = data[ice.idx];
+    Object.assign(f, {s7_at:timeStr(d0.time), s7_a_t:fmt(d0.t), s7_a_h:fmt(d0.h)});
+    const dew = markers.find(m => m.type === 'dew' && m.id > ice.id);
+    if (dew){ const d1 = data[dew.idx]; Object.assign(f, {s7_dt:timeStr(d1.time), s7_d_t:fmt(d1.t), s7_d_h:fmt(d1.h)}); }
+    got.push('⑤ 얼음물' + (dew ? '' : '(이슬 맺힘 표시 없음)'));
+  }
+  document.querySelectorAll('#ws [data-f]').forEach(el => {
+    if (f[el.dataset.f] === undefined) return;
+    if (el.tagName === 'TD'){ el.innerHTML = ''; const s = document.createElement('span'); s.className = 'fv'; s.textContent = f[el.dataset.f]; el.appendChild(s); }
+    else el.textContent = f[el.dataset.f];
+  });
+  $('fillMsg').textContent = got.length
+    ? `📥 ${got.join(', ')} 실험의 측정값을 채웠어요. 파란 글씨가 자동으로 채운 값이에요.`
+    : '아직 분석할 실험이 없어요. 측정기 탭에서 [▶ 시작]·[■ 끝] 버튼을 누르며 실험해 주세요.';
+  return got.length;
+}
+function wsClear(){
+  document.querySelectorAll('#ws [data-f]').forEach(el => { el.textContent = ''; });
+  $('fillMsg').textContent = '';
+}
+$('wsFill').onclick = wsFill;
+$('wsClear').onclick = wsClear;
+
+window.wsFill = wsFill;
+})();
+</script>
+</body>
+</html>
